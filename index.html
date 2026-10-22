@@ -68,6 +68,7 @@ textarea{min-height:120px;resize:vertical}
 details{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:0 14px;margin-top:10px}
 summary{cursor:pointer;min-height:48px;display:flex;align-items:center;font-weight:600}
 details ol,details ul{padding-left:1.2em;margin:.3em 0 .8em;font-size:.95rem}
+[hidden]{display:none!important}
 code{background:var(--code);padding:1px 6px;border-radius:5px;font-size:.88em}
 </style>
 </head>
@@ -125,8 +126,22 @@ code{background:var(--code);padding:1px 6px;border-radius:5px;font-size:.88em}
 <p class="hint">Pide respuestas cortas para que se oigan bien en voz alta.</p>
 
 <h3>Voz</h3>
-<label for="voz">Voz de Mitca</label>
-<select id="voz"></select>
+<label for="eng">Motor de voz</label>
+<select id="eng"><option value="web">Voz del celular (gratis)</option><option value="eleven">ElevenLabs (más natural)</option></select>
+<div id="webv"><label for="voz">Voz de Mitca</label><select id="voz"></select></div>
+<div id="elv" hidden>
+<label for="elk">Llave de ElevenLabs</label>
+<input id="elk" type="password" autocomplete="off">
+<label for="elvs">Voz</label>
+<select id="elvs"></select>
+<div class="row"><button id="elload" class="sec" type="button">Cargar mis voces</button></div>
+<p id="elmsg" class="hint"></p>
+<label for="elm">Modelo de voz</label>
+<input id="elm" type="text">
+<p class="hint">El plan gratis da unos 10 minutos de voz al mes, según su sitio. Si se acaba o falla, Mitca usa la voz del celular automáticamente.</p>
+<details><summary>¿Cómo consigo la llave de ElevenLabs?</summary>
+<ol><li>Crea una cuenta gratis en <b>elevenlabs.io</b>.</li><li>Entra a tu perfil y busca <b>API keys</b>.</li><li>Crea una llave, cópiala y pégala arriba.</li><li>Toca <b>Cargar mis voces</b> y elige una que suene bien en español.</li></ol></details>
+</div>
 <div class="row"><button id="tv" class="sec" type="button">Probar voz</button></div>
 
 <h3>Memoria</h3>
@@ -160,7 +175,7 @@ $('sys').value=store('jv_sys')||DS;
 $('sys').addEventListener('change',function(){store('jv_sys',$('sys').value)});
 $('key').addEventListener('change',save);$('mod').addEventListener('change',save);
 var hist=[],curRun=null,ctl=null;
-function clearChat(){if(ctl)ctl.abort();curRun=null;if('speechSynthesis' in window)speechSynthesis.cancel();hist=[];$('log').innerHTML='';setS('idle');msg('')}
+function clearChat(){if(ctl)ctl.abort();curRun=null;stopAudio();hist=[];$('log').innerHTML='';setS('idle');msg('')}
 $('prov').addEventListener('change',function(){save();cur=$('prov').value;store('jv_prov',cur);load();clearChat();msg('Cambiaste a '+(cur==='claude'?'Claude':'Gemini')+'.')});
 $('gear').addEventListener('click',openCfg);
 $('cx').addEventListener('click',function(){save();store('jv_sys',$('sys').value);$('cfg').close()});
@@ -172,18 +187,41 @@ function fillV(){var vs=voices(),c=store('jv_voz')||'',sel=$('voz');sel.innerHTM
 var d=document.createElement('option');d.value='';d.textContent=vs.length?'Voz predeterminada':'(no hay voces en español)';sel.appendChild(d);
 vs.forEach(function(v){var o=document.createElement('option');o.value=v.name;o.textContent=v.name+' ('+v.lang+')';sel.appendChild(o)});
 sel.value=c;if(sel.value!==c)sel.value=''}
+var EVD='JBFqnCBsd6RMkjVDRZzb',au=new Audio();
+function unlock(){try{au.src='data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';var p=au.play();if(p&&p.catch)p.catch(function(){})}catch(e){}}
+function stopAudio(){try{au.pause()}catch(e){}if('speechSynthesis' in window)speechSynthesis.cancel()}
 function mk(t){var u=new SpeechSynthesisUtterance(t);u.lang='es-MX';
 var vn=store('jv_voz');if(vn){var v=voices().filter(function(x){return x.name===vn})[0];if(v){u.voice=v;u.lang=v.lang}}return u}
-function startRun(){if('speechSynthesis' in window)speechSynthesis.cancel();curRun={q:0,done:false};return curRun}
+function startRun(){stopAudio();curRun={q:0,done:false,chain:Promise.resolve()};return curRun}
 function chk(run){if(run!==curRun||!run.done||run.q>0)return;setS('idle');if(conv)setTimeout(function(){if(conv&&!on)listen()},500)}
-function part(run,t){t=(t||'').trim();if(!t||run!==curRun||!('speechSynthesis' in window))return;
-var u=mk(t);run.q++;u.onstart=function(){if(run===curRun)setS('speaking')};
-var f=function(){run.q--;chk(run)};u.onend=f;u.onerror=f;speechSynthesis.speak(u)}
+function native(run,t){return new Promise(function(res){if(!('speechSynthesis' in window)||run!==curRun){res();return}var u=mk(t);u.onstart=function(){if(run===curRun)setS('speaking')};u.onend=res;u.onerror=res;speechSynthesis.speak(u)})}
+function eleven(run,t){var key=store('jv_el_key')||'',vid=store('jv_el_voice')||EVD,mod=store('jv_el_model')||'eleven_flash_v2_5';
+var p=fetch('https://api.elevenlabs.io/v1/text-to-speech/'+encodeURIComponent(vid)+'?output_format=mp3_44100_64',{method:'POST',headers:{'xi-api-key':key,'content-type':'application/json'},body:JSON.stringify({text:t,model_id:mod})}).then(function(r){if(!r.ok)return r.json().catch(function(){return{}}).then(function(d){var x=d&&d.detail;throw new Error((x&&(x.message||x))||r.status)});return r.blob()});
+p.catch(function(){});
+return function(){return p.then(function(b){if(run!==curRun)return;return new Promise(function(res){var url=URL.createObjectURL(b);au.src=url;au.onended=au.onerror=function(){URL.revokeObjectURL(url);res()};var pl=au.play();if(pl&&pl.then)pl.then(function(){if(run===curRun)setS('speaking')}).catch(res)})},function(e){if(run!==curRun)return;msg('ElevenLabs: '+(e.message||'error')+'. Uso la voz del celular.');return native(run,t)})}}
+function part(run,t){t=(t||'').trim();if(!t||run!==curRun)return;var eng=store('jv_eng')==='eleven'&&store('jv_el_key');
+var job=eng?eleven(run,t):function(){return native(run,t)};
+run.q++;run.chain=run.chain.then(job).then(function(){run.q--;chk(run)},function(){run.q--;chk(run)})}
 function fin(run){run.done=true;chk(run)}
 function say(t){var r=startRun();part(r,t);fin(r)}
 if('speechSynthesis' in window){fillV();speechSynthesis.onvoiceschanged=fillV}
 $('voz').addEventListener('change',function(){store('jv_voz',$('voz').value)});
-$('tv').addEventListener('click',function(){say('Hola, soy Mitca. ¿Así te gusta mi voz?')});
+function engUI(){var e=store('jv_eng')==='eleven';$('webv').hidden=e;$('elv').hidden=!e}
+$('eng').value=store('jv_eng')==='eleven'?'eleven':'web';engUI();
+$('eng').addEventListener('change',function(){store('jv_eng',$('eng').value);engUI()});
+$('elk').value=store('jv_el_key')||'';$('elk').addEventListener('change',function(){store('jv_el_key',$('elk').value.trim())});
+$('elm').value=store('jv_el_model')||'eleven_flash_v2_5';$('elm').addEventListener('change',function(){store('jv_el_model',$('elm').value.trim()||'eleven_flash_v2_5')});
+function elOpts(list){var sel=$('elvs'),c=store('jv_el_voice')||EVD;sel.innerHTML='';
+list.forEach(function(v){var o=document.createElement('option');o.value=v.id;o.textContent=v.name;sel.appendChild(o)});
+if(!list.some(function(v){return v.id===c})){var o=document.createElement('option');o.value=c;o.textContent='Voz guardada';sel.insertBefore(o,sel.firstChild)}sel.value=c}
+elOpts([{id:EVD,name:'George (por defecto)'}]);
+$('elvs').addEventListener('change',function(){store('jv_el_voice',$('elvs').value)});
+$('elload').addEventListener('click',function(){var k=$('elk').value.trim(),h=$('elmsg');store('jv_el_key',k);
+if(!k){h.textContent='Pega primero tu llave de ElevenLabs.';return}h.textContent='Cargando...';
+fetch('https://api.elevenlabs.io/v1/voices',{headers:{'xi-api-key':k}}).then(function(r){return r.json().then(function(d){if(!r.ok)throw new Error((d.detail&&(d.detail.message||d.detail))||r.status);return d})})
+.then(function(d){var l=(d.voices||[]).map(function(v){var lb=v.labels||{};return{id:v.voice_id,name:v.name+(lb.accent?' ('+lb.accent+')':'')}});if(!l.length)throw new Error('sin voces');elOpts(l);h.textContent='Listo: '+l.length+' voces. Elige una y toca Probar voz.'})
+.catch(function(e){h.textContent='No pude cargar voces ('+(e.message||'error')+'). Puedes seguir con la voz por defecto.'})});
+$('tv').addEventListener('click',function(){unlock();say('Hola, soy Mitca. ¿Así te gusta mi voz?')});
 /* memoria */
 function memGet(){try{var a=JSON.parse(store('jv_mem')||'[]');return Array.isArray(a)?a:[]}catch(e){return[]}}
 function memSet(a){store('jv_mem',JSON.stringify(a))}
@@ -238,17 +276,17 @@ hist.push({role:'assistant',content:full});part(run,pend+buf);fin(run);
 }catch(e){
 if(full){hist.push({role:'assistant',content:full})}else{hist.pop();if(el)el.remove()}
 if(e.name==='AbortError')return;
-curRun=null;if('speechSynthesis' in window)speechSynthesis.cancel();
+curRun=null;stopAudio();
 setConv(false);setS('idle');msg('Error: '+(e.message||'no se pudo conectar'))}
 }
-$('send').addEventListener('click',function(){var t=$('txt').value;$('txt').value='';ask(t)});
+$('send').addEventListener('click',function(){unlock();var t=$('txt').value;$('txt').value='';ask(t)});
 $('txt').addEventListener('keydown',function(e){if(e.key==='Enter'){$('send').click()}});
-$('stop').addEventListener('click',function(){setConv(false);if(ctl)ctl.abort();curRun=null;if('speechSynthesis' in window)speechSynthesis.cancel();setS('idle');msg('')});
+$('stop').addEventListener('click',function(){setConv(false);if(ctl)ctl.abort();curRun=null;stopAudio();setS('idle');msg('')});
 /* micrófono */
 var SR=window.SpeechRecognition||window.webkitSpeechRecognition,rec=null,on=false,conv=false;
 function setConv(v){conv=v;$('convb').setAttribute('aria-pressed',v?'true':'false')}
 function listen(){
-if(ctl)ctl.abort();curRun=null;if('speechSynthesis' in window)speechSynthesis.cancel();
+if(ctl)ctl.abort();curRun=null;stopAudio();
 rec=new SR();rec.lang='es-MX';rec.interimResults=false;
 rec.onstart=function(){on=true;setS('listening');$('mic').classList.add('on');msg('')};
 rec.onresult=function(e){ask(e.results[0][0].transcript)};
@@ -258,8 +296,8 @@ try{rec.start()}catch(e){}
 }
 if(!SR){$('mic').disabled=true;$('convb').disabled=true;msg('Tu navegador no tiene reconocimiento de voz: escribe abajo.')}
 else{
-$('mic').addEventListener('click',function(){if(on){setConv(false);rec.stop();return}listen()});
-$('convb').addEventListener('click',function(){setConv(!conv);if(conv&&!on)listen()})}
+$('mic').addEventListener('click',function(){unlock();if(on){setConv(false);rec.stop();return}listen()});
+$('convb').addEventListener('click',function(){unlock();setConv(!conv);if(conv&&!on)listen()})}
 setS('idle');
 if(!store('jv_key_'+cur))setTimeout(openCfg,300);
 })();
