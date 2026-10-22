@@ -42,7 +42,8 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 .u{align-self:flex-end;background:var(--accbg);border:1px solid var(--acc)}
 .a{align-self:flex-start;background:var(--card);border:1px solid var(--line)}
 .dock{flex:none;padding:8px 14px 12px;border-top:1px solid var(--line);background:var(--bg)}
-.chips{display:flex;gap:8px;margin-bottom:8px}
+.chips{display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+#hear{font-size:.8rem;color:var(--mut);min-height:1.1em}
 .chip{min-height:40px;font-size:.9rem;padding:0 14px;background:transparent;color:var(--ink);border:1px solid var(--line)}
 .chip[aria-pressed=true]{background:var(--acc);color:var(--onacc);border-color:var(--acc)}
 .bar{display:flex;gap:8px;align-items:center}
@@ -87,6 +88,7 @@ code{background:var(--code);padding:1px 6px;border-radius:5px;font-size:.88em}
 </div>
 <div id="avl" aria-live="polite">Lista</div>
 <div id="st" role="status"></div>
+<div id="hear"></div>
 </div>
 
 <div id="log"></div>
@@ -94,6 +96,7 @@ code{background:var(--code);padding:1px 6px;border-radius:5px;font-size:.88em}
 <div class="dock">
 <div class="chips">
 <button id="convb" class="chip" type="button" aria-pressed="false">Conversación</button>
+<button id="wakeb" class="chip" type="button" aria-pressed="false">Di “Mitca”</button>
 <button id="stop" class="chip" type="button">Callar</button>
 </div>
 <div class="bar">
@@ -138,12 +141,16 @@ code{background:var(--code);padding:1px 6px;border-radius:5px;font-size:.88em}
 <p id="elmsg" class="hint"></p>
 <label for="elm">Modelo de voz</label>
 <input id="elm" type="text">
-<p class="hint">El plan gratis da unos 10 minutos de voz al mes, según su sitio. Si se acaba o falla, Mitca usa la voz del celular automáticamente.</p>
+<p class="hint">El plan gratis da unos 10 minutos de voz al mes, según su sitio. Si se acaba o falla, Mitca cambia sola a la voz del celular y vuelve a ElevenLabs en cuanto se pueda.</p>
 <details><summary>¿Cómo consigo la llave de ElevenLabs?</summary>
 <ol><li>Crea una cuenta gratis en <b>elevenlabs.io</b>.</li><li>Entra a tu perfil y busca <b>API keys</b>.</li><li>Crea una llave, cópiala y pégala arriba.</li><li>Toca <b>Cargar mis voces</b> y elige una que suene bien en español.</li></ol></details>
 </div>
 <div class="row"><button id="tv" class="sec" type="button">Probar voz</button></div>
 
+<h3>Activación por voz</h3>
+<label for="wkw">Palabras para activarla</label>
+<input id="wkw" type="text">
+<p class="hint">Separadas por coma. Si no te entiende, mira en la pantalla principal cómo escribió tu voz (“Escuché: ...”) y agrega esa forma aquí.</p>
 <h3>Memoria</h3>
 <p>Dile “recuerda que...” y lo guarda. Se envía a la IA en cada mensaje: no guardes contraseñas ni datos de tarjetas.</p>
 <ul id="memL" class="mem"></ul>
@@ -160,8 +167,10 @@ code{background:var(--code);padding:1px 6px;border-radius:5px;font-size:.88em}
 (function(){
 var $=function(i){return document.getElementById(i)};
 function store(k,v){try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v)}catch(e){return null}}
+var wake=false,wl=false,wh=false,wrec=null;
 var LB={idle:'Lista',listening:'Te escucho...',thinking:'Pensando...',speaking:'Hablando...'};
-function setS(s){$('av').dataset.s=s;$('avl').textContent=LB[s];$('iN').className=s==='idle'?'on':'';$('iL').className=s==='listening'?'on':'';$('iT').className=s==='thinking'?'on':'';$('iS').className=s==='speaking'?'on':''}
+function setS(s){$('av').dataset.s=s;$('avl').textContent=(s==='idle'&&wake)?'Esperando “Mitca”...':LB[s];$('iN').className=s==='idle'?'on':'';$('iL').className=s==='listening'?'on':'';$('iT').className=s==='thinking'?'on':'';$('iS').className=s==='speaking'?'on':'';
+wh=false;if(s!=='idle'){if(wrec){try{wrec.abort()}catch(e){}}}else wakeNext()}
 function msg(t){$('st').textContent=t||''}
 function openCfg(){var d=$('cfg');if(d.showModal)d.showModal();else d.setAttribute('open','')}
 /* ajustes */
@@ -177,7 +186,8 @@ $('key').addEventListener('change',save);$('mod').addEventListener('change',save
 var hist=[],curRun=null,ctl=null;
 function clearChat(){if(ctl)ctl.abort();curRun=null;stopAudio();hist=[];$('log').innerHTML='';setS('idle');msg('')}
 $('prov').addEventListener('change',function(){save();cur=$('prov').value;store('jv_prov',cur);load();clearChat();msg('Cambiaste a '+(cur==='claude'?'Claude':'Gemini')+'.')});
-$('gear').addEventListener('click',openCfg);
+$('gear').addEventListener('click',function(){var u=elUntil();
+$('elmsg').textContent=(store('jv_eng')==='eleven'&&u>Date.now())?'ElevenLabs en pausa hasta '+new Date(u).toLocaleString('es-MX',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})+'; mientras tanto usa la voz del celular.':'';openCfg()});
 $('cx').addEventListener('click',function(){save();store('jv_sys',$('sys').value);$('cfg').close()});
 $('clr').addEventListener('click',function(){clearChat();$('cfg').close()});
 /* chat */
@@ -195,11 +205,23 @@ var vn=store('jv_voz');if(vn){var v=voices().filter(function(x){return x.name===
 function startRun(){stopAudio();curRun={q:0,done:false,chain:Promise.resolve()};return curRun}
 function chk(run){if(run!==curRun||!run.done||run.q>0)return;setS('idle');if(conv)setTimeout(function(){if(conv&&!on)listen()},500)}
 function native(run,t){return new Promise(function(res){if(!('speechSynthesis' in window)||run!==curRun){res();return}var u=mk(t);u.onstart=function(){if(run===curRun)setS('speaking')};u.onend=res;u.onerror=res;speechSynthesis.speak(u)})}
+function elErr(r,d){var x=d&&d.detail,e=new Error((x&&(x.message||(typeof x==='string'?x:'')))||('HTTP '+r.status));e.status=r.status;e.code=(x&&x.status)||'';return e}
+function elUntil(){return parseInt(store('jv_el_until')||'0',10)||0}
+function elReset(){var k=store('jv_el_key');if(!k)return;
+fetch('https://api.elevenlabs.io/v1/user/subscription',{headers:{'xi-api-key':k}}).then(function(r){return r.ok?r.json():null}).then(function(d){var t=d&&d.next_character_count_reset_unix;if(t&&t*1000>Date.now()+60000)store('jv_el_until',String(t*1000))}).catch(function(){})}
+function elFail(e){if(e.status===429)return;
+var txt=(e.code||'')+' '+(e.message||''),bad=e.status===401&&/invalid|api_key/i.test(txt),q=!bad&&(e.status===401||e.status===402||/quota|credit|character|limit/i.test(txt));
+store('jv_el_until',String(Date.now()+(bad?864e5:(q?18e5:12e4))));store('jv_el_down','1');if(q)elReset();
+msg(bad?'La llave de ElevenLabs no es válida: uso la voz del celular.':(q?'Se acabó la cuota de ElevenLabs: uso la voz del celular y vuelvo a probar más tarde.':'ElevenLabs no responde: uso la voz del celular un momento.'))}
 function eleven(run,t){var key=store('jv_el_key')||'',vid=store('jv_el_voice')||EVD,mod=store('jv_el_model')||'eleven_flash_v2_5';
-var p=fetch('https://api.elevenlabs.io/v1/text-to-speech/'+encodeURIComponent(vid)+'?output_format=mp3_44100_64',{method:'POST',headers:{'xi-api-key':key,'content-type':'application/json'},body:JSON.stringify({text:t,model_id:mod})}).then(function(r){if(!r.ok)return r.json().catch(function(){return{}}).then(function(d){var x=d&&d.detail;throw new Error((x&&(x.message||x))||r.status)});return r.blob()});
+var p=fetch('https://api.elevenlabs.io/v1/text-to-speech/'+encodeURIComponent(vid)+'?output_format=mp3_44100_64',{method:'POST',headers:{'xi-api-key':key,'content-type':'application/json'},body:JSON.stringify({text:t,model_id:mod})}).then(function(r){if(!r.ok)return r.json().catch(function(){return{}}).then(function(d){throw elErr(r,d)});return r.blob()});
 p.catch(function(){});
-return function(){return p.then(function(b){if(run!==curRun)return;return new Promise(function(res){var url=URL.createObjectURL(b);au.src=url;au.onended=au.onerror=function(){URL.revokeObjectURL(url);res()};var pl=au.play();if(pl&&pl.then)pl.then(function(){if(run===curRun)setS('speaking')}).catch(res)})},function(e){if(run!==curRun)return;msg('ElevenLabs: '+(e.message||'error')+'. Uso la voz del celular.');return native(run,t)})}}
-function part(run,t){t=(t||'').trim();if(!t||run!==curRun)return;var eng=store('jv_eng')==='eleven'&&store('jv_el_key');
+return function(){return p.then(function(b){
+if(store('jv_el_down')==='1'){store('jv_el_down','0');store('jv_el_until','0');msg('ElevenLabs disponible otra vez.')}
+if(run!==curRun)return;
+return new Promise(function(res){var url=URL.createObjectURL(b);au.src=url;au.onended=au.onerror=function(){URL.revokeObjectURL(url);res()};var pl=au.play();if(pl&&pl.then)pl.then(function(){if(run===curRun)setS('speaking')}).catch(res)})},
+function(e){if(run!==curRun)return;elFail(e);return native(run,t)})}}
+function part(run,t){t=(t||'').trim();if(!t||run!==curRun)return;var eng=store('jv_eng')==='eleven'&&store('jv_el_key')&&Date.now()>elUntil();
 var job=eng?eleven(run,t):function(){return native(run,t)};
 run.q++;run.chain=run.chain.then(job).then(function(){run.q--;chk(run)},function(){run.q--;chk(run)})}
 function fin(run){run.done=true;chk(run)}
@@ -286,7 +308,7 @@ $('stop').addEventListener('click',function(){setConv(false);if(ctl)ctl.abort();
 var SR=window.SpeechRecognition||window.webkitSpeechRecognition,rec=null,on=false,conv=false;
 function setConv(v){conv=v;$('convb').setAttribute('aria-pressed',v?'true':'false')}
 function listen(){
-if(ctl)ctl.abort();curRun=null;stopAudio();
+if(ctl)ctl.abort();curRun=null;stopAudio();if(wrec){try{wrec.abort()}catch(e){}}
 rec=new SR();rec.lang='es-MX';rec.interimResults=false;
 rec.onstart=function(){on=true;setS('listening');$('mic').classList.add('on');msg('')};
 rec.onresult=function(e){ask(e.results[0][0].transcript)};
@@ -298,6 +320,30 @@ if(!SR){$('mic').disabled=true;$('convb').disabled=true;msg('Tu navegador no tie
 else{
 $('mic').addEventListener('click',function(){unlock();if(on){setConv(false);rec.stop();return}listen()});
 $('convb').addEventListener('click',function(){unlock();setConv(!conv);if(conv&&!on)listen()})}
+/* activación por voz */
+$('wkw').value=store('jv_wake')||'mitca, mitka';$('wkw').addEventListener('change',function(){store('jv_wake',$('wkw').value)});
+function fold(t){return t.toLowerCase().split('').map(function(c){return c.normalize('NFD').charAt(0)}).join('')}
+function wwords(){return (store('jv_wake')||'mitca, mitka').split(',').map(function(x){return fold(x.trim())}).filter(Boolean)}
+var lk=null;
+async function lockScr(){try{if(wake&&navigator.wakeLock)lk=await navigator.wakeLock.request('screen')}catch(e){}}
+document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible'&&wake)lockScr()});
+function wakeNext(){setTimeout(function(){if(wake&&!wl&&!on&&$('av').dataset.s==='idle')listenWake()},700)}
+function setWake(v){wake=v;$('wakeb').setAttribute('aria-pressed',v?'true':'false');$('hear').textContent='';
+if(v){lockScr()}else{try{if(lk){lk.release();lk=null}}catch(e){}if(wrec){try{wrec.abort()}catch(e){}}}
+setS($('av').dataset.s)}
+function listenWake(){
+if(!wake||!SR||wl||on)return;
+wrec=new SR();wrec.lang='es-MX';wrec.interimResults=false;wrec.continuous=false;
+wrec.onstart=function(){wl=true};
+wrec.onresult=function(e){var t=e.results[e.results.length-1][0].transcript,f=fold(t),hit=null;
+wwords().forEach(function(w){var i=f.indexOf(w);if(i>=0&&(!hit||i<hit.i))hit={i:i,n:w.length}});
+if(!hit){$('hear').textContent='Escuché: “'+t+'”';return}
+$('hear').textContent='';wh=true;var cmd=t.slice(hit.i+hit.n).replace(/^[\s,.:;!?¿¡-]+/,'');
+if(cmd.length>=3)ask(cmd);else listen()};
+wrec.onerror=function(e){if(e.error==='not-allowed'||e.error==='service-not-allowed'){setWake(false);msg('Micrófono bloqueado: permítelo para usar la palabra de activación.')}};
+wrec.onend=function(){wl=false;if(wake&&!wh&&!on&&$('av').dataset.s==='idle')wakeNext()};
+try{wrec.start()}catch(e){wl=false}}
+if(!SR)$('wakeb').disabled=true;else $('wakeb').addEventListener('click',function(){unlock();setWake(!wake)});
 setS('idle');
 if(!store('jv_key_'+cur))setTimeout(openCfg,300);
 })();
