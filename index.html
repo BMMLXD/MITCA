@@ -159,8 +159,8 @@ load();
 $('sys').value=store('jv_sys')||DS;
 $('sys').addEventListener('change',function(){store('jv_sys',$('sys').value)});
 $('key').addEventListener('change',save);$('mod').addEventListener('change',save);
-var hist=[];
-function clearChat(){hist=[];$('log').innerHTML='';setS('idle');msg('')}
+var hist=[],curRun=null,ctl=null;
+function clearChat(){if(ctl)ctl.abort();curRun=null;if('speechSynthesis' in window)speechSynthesis.cancel();hist=[];$('log').innerHTML='';setS('idle');msg('')}
 $('prov').addEventListener('change',function(){save();cur=$('prov').value;store('jv_prov',cur);load();clearChat();msg('Cambiaste a '+(cur==='claude'?'Claude':'Gemini')+'.')});
 $('gear').addEventListener('click',openCfg);
 $('cx').addEventListener('click',function(){save();store('jv_sys',$('sys').value);$('cfg').close()});
@@ -172,11 +172,15 @@ function fillV(){var vs=voices(),c=store('jv_voz')||'',sel=$('voz');sel.innerHTM
 var d=document.createElement('option');d.value='';d.textContent=vs.length?'Voz predeterminada':'(no hay voces en español)';sel.appendChild(d);
 vs.forEach(function(v){var o=document.createElement('option');o.value=v.name;o.textContent=v.name+' ('+v.lang+')';sel.appendChild(o)});
 sel.value=c;if(sel.value!==c)sel.value=''}
-function say(t){if(!('speechSynthesis' in window)){setS('idle');return}speechSynthesis.cancel();var u=new SpeechSynthesisUtterance(t);u.lang='es-MX';
-var vn=store('jv_voz');if(vn){var v=voices().filter(function(x){return x.name===vn})[0];if(v){u.voice=v;u.lang=v.lang}}
-u.onstart=function(){setS('speaking')};
-u.onend=function(){setS('idle');if(conv)setTimeout(function(){if(conv&&!on)listen()},500)};
-u.onerror=function(){setS('idle')};speechSynthesis.speak(u)}
+function mk(t){var u=new SpeechSynthesisUtterance(t);u.lang='es-MX';
+var vn=store('jv_voz');if(vn){var v=voices().filter(function(x){return x.name===vn})[0];if(v){u.voice=v;u.lang=v.lang}}return u}
+function startRun(){if('speechSynthesis' in window)speechSynthesis.cancel();curRun={q:0,done:false};return curRun}
+function chk(run){if(run!==curRun||!run.done||run.q>0)return;setS('idle');if(conv)setTimeout(function(){if(conv&&!on)listen()},500)}
+function part(run,t){t=(t||'').trim();if(!t||run!==curRun||!('speechSynthesis' in window))return;
+var u=mk(t);run.q++;u.onstart=function(){if(run===curRun)setS('speaking')};
+var f=function(){run.q--;chk(run)};u.onend=f;u.onerror=f;speechSynthesis.speak(u)}
+function fin(run){run.done=true;chk(run)}
+function say(t){var r=startRun();part(r,t);fin(r)}
 if('speechSynthesis' in window){fillV();speechSynthesis.onvoiceschanged=fillV}
 $('voz').addEventListener('change',function(){store('jv_voz',$('voz').value)});
 $('tv').addEventListener('click',function(){say('Hola, soy Mitca. ¿Así te gusta mi voz?')});
@@ -198,20 +202,22 @@ $('memI').addEventListener('keydown',function(e){if(e.key==='Enter')$('memA').cl
 $('memC').addEventListener('click',function(){if(memGet().length&&confirm('¿Borrar todo lo que Mitca recuerda?')){memSet([]);memRender()}});
 memRender();
 /* IA */
-async function callAI(k,m,sys){
+async function sse(resp,onEv){
+function line(l){l=l.replace(/\r$/,'');if(l.indexOf('data:')!==0)return;var j=l.slice(5).trim();if(!j||j==='[DONE]')return;var o=null;try{o=JSON.parse(j)}catch(e){}if(o)onEv(o)}
+if(!resp.body||!resp.body.getReader){(await resp.text()).split('\n').forEach(line);return}
+var rd=resp.body.getReader(),dec=new TextDecoder(),b='';
+for(;;){var x=await rd.read();if(x.done)break;b+=dec.decode(x.value,{stream:true});var i;while((i=b.indexOf('\n'))>=0){var l=b.slice(0,i);b=b.slice(i+1);line(l)}}
+if(b)line(b)}
+async function callAI(k,m,sys,onT,sig){
 if(cur==='claude'){
-var r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'content-type':'application/json','x-api-key':k,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:m,max_tokens:300,system:sys,messages:hist})});
-var d=await r.json();
-if(!r.ok)throw new Error((d.error&&d.error.message)||r.status);
-return d.content.map(function(b){return b.type==='text'?b.text:''}).join('').trim();
-}
-var r2=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(m)+':generateContent',{method:'POST',headers:{'content-type':'application/json','x-goog-api-key':k},
+var r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',signal:sig,headers:{'content-type':'application/json','x-api-key':k,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:m,max_tokens:300,stream:true,system:sys,messages:hist})});
+if(!r.ok){var d=await r.json().catch(function(){return{}});throw new Error((d.error&&d.error.message)||r.status)}
+await sse(r,function(o){if(o.type==='error')throw new Error((o.error&&o.error.message)||'error');if(o.type==='content_block_delta'&&o.delta&&o.delta.type==='text_delta')onT(o.delta.text)});
+return}
+var r2=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(m)+':streamGenerateContent?alt=sse',{method:'POST',signal:sig,headers:{'content-type':'application/json','x-goog-api-key':k},
 body:JSON.stringify({systemInstruction:{parts:[{text:sys}]},contents:hist.map(function(h){return{role:h.role==='assistant'?'model':'user',parts:[{text:h.content}]}}),generationConfig:{maxOutputTokens:300}})});
-var d2=await r2.json();
-if(!r2.ok)throw new Error((d2.error&&d2.error.message)||r2.status);
-var c=d2.candidates&&d2.candidates[0];
-return ((c&&c.content&&c.content.parts)||[]).map(function(p){return p.text||''}).join('').trim()||'(sin respuesta)';
-}
+if(!r2.ok){var d2=await r2.json().catch(function(){return{}});if(Array.isArray(d2))d2=d2[0]||{};throw new Error((d2.error&&d2.error.message)||r2.status)}
+await sse(r2,function(o){var c=o.candidates&&o.candidates[0];((c&&c.content&&c.content.parts)||[]).forEach(function(p){if(p.text)onT(p.text)})})}
 async function ask(text){
 text=(text||'').trim();if(!text)return;
 var mm=text.match(/^\s*(?:mitca[,:]?\s+)?(?:recuerda|acuérdate|acuerdate|anota|guarda)(?:\s+que)?\s+(.+)/i);if(mm)memAdd(mm[1]);
@@ -220,19 +226,29 @@ if(!k){setConv(false);setS('idle');msg('Falta tu llave: pégala en Configuració
 save();msg('');
 add('u',text);hist.push({role:'user',content:text});
 setS('thinking');
+var run=startRun(),buf='',pend='',full='',el=null;ctl=new AbortController();
+function feed(d){full+=d;buf+=d;
+if(!el){el=document.createElement('div');el.className='m a';$('log').appendChild(el)}
+el.textContent=full;$('log').scrollTop=$('log').scrollHeight;
+var m;while((m=buf.match(/^([\s\S]*?(?:[.!?…]+["”’)]*\s|\n))/))){buf=buf.slice(m[0].length);pend+=m[1];if(pend.trim().length>=25){part(run,pend);pend=''}}}
 try{
-var out=await callAI(k,$('mod').value.trim(),$('sys').value+nowText()+memText());
-hist.push({role:'assistant',content:out});add('a',out);setS('speaking');say(out);
-}catch(e){hist.pop();setConv(false);setS('idle');msg('Error: '+(e.message||'no se pudo conectar'))}
+await callAI(k,$('mod').value.trim(),$('sys').value+nowText()+memText(),feed,ctl.signal);
+if(!full)feed('(sin respuesta)');
+hist.push({role:'assistant',content:full});part(run,pend+buf);fin(run);
+}catch(e){
+if(full){hist.push({role:'assistant',content:full})}else{hist.pop();if(el)el.remove()}
+if(e.name==='AbortError')return;
+curRun=null;if('speechSynthesis' in window)speechSynthesis.cancel();
+setConv(false);setS('idle');msg('Error: '+(e.message||'no se pudo conectar'))}
 }
 $('send').addEventListener('click',function(){var t=$('txt').value;$('txt').value='';ask(t)});
 $('txt').addEventListener('keydown',function(e){if(e.key==='Enter'){$('send').click()}});
-$('stop').addEventListener('click',function(){setConv(false);if('speechSynthesis' in window)speechSynthesis.cancel();setS('idle');msg('')});
+$('stop').addEventListener('click',function(){setConv(false);if(ctl)ctl.abort();curRun=null;if('speechSynthesis' in window)speechSynthesis.cancel();setS('idle');msg('')});
 /* micrófono */
 var SR=window.SpeechRecognition||window.webkitSpeechRecognition,rec=null,on=false,conv=false;
 function setConv(v){conv=v;$('convb').setAttribute('aria-pressed',v?'true':'false')}
 function listen(){
-if('speechSynthesis' in window)speechSynthesis.cancel();
+if(ctl)ctl.abort();curRun=null;if('speechSynthesis' in window)speechSynthesis.cancel();
 rec=new SR();rec.lang='es-MX';rec.interimResults=false;
 rec.onstart=function(){on=true;setS('listening');$('mic').classList.add('on');msg('')};
 rec.onresult=function(e){ask(e.results[0][0].transcript)};
