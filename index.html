@@ -55,6 +55,8 @@ button:focus-visible,summary:focus-visible,input:focus-visible,textarea:focus-vi
 @keyframes pulse{50%{box-shadow:0 0 0 8px rgba(46,204,113,.25)}}
 #avl{text-align:center;color:var(--mut);font-size:.95rem;margin-bottom:6px}
 @media (prefers-reduced-motion:reduce){.av img{transition:none}.av[data-s=speaking]{animation:none}}
+.chk{display:flex;gap:12px;align-items:center;margin:16px 0 4px;color:var(--ink);font-size:1rem}
+.chk input{width:26px;height:26px;accent-color:var(--acc);flex:none}
 #st{color:var(--mut);font-size:.9rem;min-height:1.4em;margin-top:8px}
 .prog{height:8px;background:var(--line);border-radius:99px;overflow:hidden;margin:6px 0 14px}
 .prog div{height:100%;width:0;background:var(--acc);transition:width .3s}
@@ -141,6 +143,10 @@ button:focus-visible,summary:focus-visible,input:focus-visible,textarea:focus-vi
 <p style="font-size:.85rem;color:var(--mut)">Si sale error de modelo, cambia este nombre por uno vigente de la lista de tu proveedor.</p>
 <label for="sys">Personalidad</label>
 <textarea id="sys">Eres Mitca, mi asistente personal. Hablas en español mexicano, directo y eficiente, con humor seco. Respondes en máximo 2 frases porque tus respuestas se leen en voz alta. Sin listas ni símbolos.</textarea>
+<label for="voz">Voz de Mitca</label>
+<select id="voz"></select>
+<div class="row"><button id="tv" class="sec" type="button">Probar voz</button></div>
+<label class="chk"><input type="checkbox" id="conv">Modo conversación: escucha sola después de responder</label>
 <div class="row"><button id="mic" type="button">Mantener para hablar: toca y habla</button></div>
 <label for="txt">O escribe</label>
 <input id="txt" type="text" placeholder="¿Qué hora es en Tokio?">
@@ -176,6 +182,7 @@ button:focus-visible,summary:focus-visible,input:focus-visible,textarea:focus-vi
 <div class="body">
 <p>La voz del navegador es robótica. Cuando quieras algo más natural:</p>
 <ul>
+<li><b>Voz del celular:</b> en el paso 5 ya puedes elegir otra voz en español de las que trae tu dispositivo.</li>
 <li><b>Oídos:</b> Whisper o Deepgram (mejor con acentos y ruido).</li>
 <li><b>Boca:</b> ElevenLabs (muy natural, de paga) o Piper (gratis, corre local).</li>
 <li><b>Palabra de activación:</b> Porcupine u openWakeWord, para decir “Mitca” sin tocar nada.</li>
@@ -228,7 +235,19 @@ $('prov').addEventListener('change',function(){save();cur=$('prov').value;store(
 /* chat */
 var hist=[];
 function add(c,t){var d=document.createElement('div');d.className='m '+c;d.textContent=t;$('log').appendChild(d);d.scrollIntoView({block:'nearest'})}
-function say(t){if(!('speechSynthesis' in window)){setS('idle');return}speechSynthesis.cancel();var u=new SpeechSynthesisUtterance(t);u.lang='es-MX';u.onstart=function(){setS('speaking')};u.onend=function(){$('st').textContent='';setS('idle')};u.onerror=function(){setS('idle')};speechSynthesis.speak(u)}
+function voices(){return window.speechSynthesis?speechSynthesis.getVoices().filter(function(v){return /^es/i.test(v.lang)}):[]}
+function fillV(){var vs=voices(),c=store('jv_voz')||'',sel=$('voz');sel.innerHTML='';
+var d=document.createElement('option');d.value='';d.textContent=vs.length?'Voz predeterminada':'(no hay voces en español)';sel.appendChild(d);
+vs.forEach(function(v){var o=document.createElement('option');o.value=v.name;o.textContent=v.name+' ('+v.lang+')';sel.appendChild(o)});
+sel.value=c;if(sel.value!==c)sel.value=''}
+function say(t){if(!('speechSynthesis' in window)){setS('idle');return}speechSynthesis.cancel();var u=new SpeechSynthesisUtterance(t);u.lang='es-MX';
+var vn=store('jv_voz');if(vn){var v=voices().filter(function(x){return x.name===vn})[0];if(v){u.voice=v;u.lang=v.lang}}
+u.onstart=function(){setS('speaking')};
+u.onend=function(){$('st').textContent='';setS('idle');if(conv)setTimeout(function(){if(conv&&!on)listen()},500)};
+u.onerror=function(){setS('idle')};speechSynthesis.speak(u)}
+if('speechSynthesis' in window){fillV();speechSynthesis.onvoiceschanged=fillV}
+$('voz').addEventListener('change',function(){store('jv_voz',$('voz').value)});
+$('tv').addEventListener('click',function(){say('Hola, soy Mitca. ¿Así te gusta mi voz?')});
 async function callAI(k,m,sys){
 if(cur==='claude'){
 var r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'content-type':'application/json','x-api-key':k,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:m,max_tokens:300,system:sys,messages:hist})});
@@ -253,25 +272,29 @@ $('st').textContent='Pensando...';setS('thinking');
 try{
 var out=await callAI(k,$('mod').value.trim(),$('sys').value);
 hist.push({role:'assistant',content:out});add('a',out);$('st').textContent='Hablando...';setS('speaking');say(out);
-}catch(e){hist.pop();setS('idle');$('st').textContent='Error: '+(e.message||'no se pudo conectar')}
+}catch(e){hist.pop();setConv(false);setS('idle');$('st').textContent='Error: '+(e.message||'no se pudo conectar')}
 }
 $('send').addEventListener('click',function(){var t=$('txt').value;$('txt').value='';ask(t)});
 $('txt').addEventListener('keydown',function(e){if(e.key==='Enter'){$('send').click()}});
-$('stop').addEventListener('click',function(){if('speechSynthesis' in window)speechSynthesis.cancel();$('st').textContent='';setS('idle')});
+$('stop').addEventListener('click',function(){setConv(false);if('speechSynthesis' in window)speechSynthesis.cancel();$('st').textContent='';setS('idle')});
 $('clr').addEventListener('click',function(){hist=[];setS('idle');$('log').innerHTML='';$('st').textContent=''});
 /* micrófono */
-var SR=window.SpeechRecognition||window.webkitSpeechRecognition,rec=null,on=false;
-if(!SR){$('mic').disabled=true;$('mic').textContent='Tu navegador no tiene reconocimiento de voz: escribe abajo'}
-else{$('mic').addEventListener('click',function(){
-if(on){rec.stop();return}
+var SR=window.SpeechRecognition||window.webkitSpeechRecognition,rec=null,on=false,conv=false;
+function setConv(v){conv=v;$('conv').checked=v}
+function listen(){
 if('speechSynthesis' in window)speechSynthesis.cancel();
 rec=new SR();rec.lang='es-MX';rec.interimResults=false;
 rec.onstart=function(){on=true;setS('listening');$('mic').classList.add('on');$('mic').textContent='Escuchando... toca para parar';$('st').textContent=''};
 rec.onresult=function(e){ask(e.results[0][0].transcript)};
-rec.onerror=function(e){setS('idle');$('st').textContent='Micrófono: '+e.error+(e.error==='not-allowed'?' (permite el micrófono o abre la página desde https)':'')};
+rec.onerror=function(e){var was=conv;setS('idle');setConv(false);$('st').textContent='Micrófono: '+e.error+(e.error==='not-allowed'?' (permite el micrófono o abre la página desde https)':(e.error==='no-speech'&&was?' (no te oí; apagué el modo conversación)':''))};
 rec.onend=function(){on=false;if($('av').dataset.s==='listening')setS('idle');$('mic').classList.remove('on');$('mic').textContent='Toca y habla'};
 try{rec.start()}catch(e){}
-});$('mic').textContent='Toca y habla'}
+}
+if(!SR){$('mic').disabled=true;$('conv').disabled=true;$('mic').textContent='Tu navegador no tiene reconocimiento de voz: escribe abajo'}
+else{
+$('mic').addEventListener('click',function(){if(on){setConv(false);rec.stop();return}listen()});
+$('conv').addEventListener('change',function(){conv=$('conv').checked;if(conv&&!on)listen()});
+$('mic').textContent='Toca y habla'}
 })();
 </script>
 </body>
