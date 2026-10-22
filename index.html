@@ -197,6 +197,11 @@ button,.av,.m{transition:background-color .3s,border-color .3s}
 <p class="hint">Si tu IA responde que ya no hay cuota, la app prueba sola con este modelo, luego con tus otras llaves y otras IA que hayas guardado y, al final, con Claude (si guardaste su llave).</p>
 <label class="chk"><input type="checkbox" id="xpfb">Permitir cambiar a otros proveedores automáticamente (envía el contexto a otra empresa)</label>
 <p class="hint">Por privacidad, esta opción inicia apagada. Las llaves de API de la versión original se guardan en el almacenamiento local del navegador; no compartas esta sesión ni publiques la app con llaves guardadas.</p>
+<h3>Puerta segura (llaves en Cloudflare)</h3>
+<label for="gwt">Token de acceso de Mitca</label>
+<input id="gwt" type="password" autocomplete="off" placeholder="Pega aquí tu token">
+<p id="gws" class="hint">Sin token, Mitca usa las llaves guardadas en este celular. Con token, las llamadas de IA pasan por tu Worker y las llaves reales quedan solo en Cloudflare.</p>
+<div class="row"><button id="gwc" class="sec" type="button">Borrar llaves guardadas en este celular</button></div>
 <p id="uso" class="hint"></p>
 <h3>Respaldo</h3>
 <p class="hint">Guarda tus recuerdos y ajustes en un archivo para no perderlos si cambias de celular o borras los datos del navegador.</p>
@@ -216,7 +221,16 @@ button,.av,.m{transition:background-color .3s,border-color .3s}
 <script>
 (function(){
 var $=function(i){return document.getElementById(i)};
-function store(k,v){try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v)}catch(e){return null}}
+var GW={tok:'',prov:[]};
+try{GW.tok=localStorage.getItem('jv_gw')||'';GW.prov=JSON.parse(localStorage.getItem('jv_gwst')||'[]')||[]}catch(e){}
+function gwKey(k){if(!GW.tok)return '';if(k==='jv_el_key')return GW.prov.indexOf('eleven')>-1?'eleven':'';var m=/^jv_key_(.+)$/.exec(k);return m&&GW.prov.indexOf(m[1])>-1?m[1]:''}
+function store(k,v){try{if(v===undefined){if(gwKey(k))return 'gateway';return localStorage.getItem(k)}if(gwKey(k))return;localStorage.setItem(k,v)}catch(e){return null}}
+var GWH={'api.anthropic.com':'claude','generativelanguage.googleapis.com':'gemini','api.groq.com':'groq','openrouter.ai':'openrouter','api.mistral.ai':'mistral','api.cerebras.ai':'cerebras','api.sambanova.ai':'sambanova','api.deepseek.com':'deepseek','api.elevenlabs.io':'eleven'};
+function gwBase(){return String(typeof MITCA_SEARCH_ENDPOINT==='string'?MITCA_SEARCH_ENDPOINT:'').trim().replace(/\/$/,'')}
+var _gf=window.fetch.bind(window);
+window.fetch=function(u,o){try{var b=gwBase();if(GW.tok&&b&&typeof u==='string'){var m=/^https:\/\/([^\/?#]+)([^#]*)$/.exec(u);
+if(m&&GWH[m[1]]&&GW.prov.indexOf(GWH[m[1]])>-1){var h={},oh=(o&&o.headers)||{};Object.keys(oh).forEach(function(k){var l=k.toLowerCase();if(l==='content-type'||l==='anthropic-version')h[k]=oh[k]});h['x-mitca-token']=GW.tok;var o2={};for(var x in (o||{}))o2[x]=o[x];o2.headers=h;return _gf(b+'/p/'+m[1]+(m[2]||'/'),o2)}
+if(u.indexOf(b+'/api/')===0){var h2={},oh2=(o&&o.headers)||{};Object.keys(oh2).forEach(function(k){h2[k]=oh2[k]});h2['x-mitca-token']=GW.tok;var o3={};for(var y in (o||{}))o3[y]=o[y];o3.headers=h2;return _gf(u,o3)}}}catch(e){}return _gf(u,o)};
 var wake=false,wl=false,wh=false,wrec=null;
 var LB={idle:'Lista',listening:'Te escucho...',thinking:'Pensando...',speaking:'Hablando...'};
 function setS(s){$('av').dataset.s=s;$('avl').textContent=(s==='idle'&&wake)?'Esperando que me llames...':LB[s];$('iN').className=s==='idle'?'on':'';$('iL').className=s==='listening'?'on':'';$('iT').className=s==='thinking'?'on':'';$('iS').className=s==='speaking'?'on':'';
@@ -516,7 +530,7 @@ return null}
 $('web').checked=store('jv_web')==='1';$('web').addEventListener('change',function(){store('jv_web',$('web').checked?'1':'0')});
 /* respaldo */
 $('bke').addEventListener('click',function(){var inc=$('bkk').checked,o={};
-try{for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(k.indexOf('jv_')!==0||k==='jv_el_until'||k==='jv_el_down')continue;if(!inc&&(k.indexOf('jv_key_')===0||k==='jv_el_key'))continue;o[k]=localStorage.getItem(k)}}catch(e){}
+try{for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(k.indexOf('jv_')!==0||k==='jv_el_until'||k==='jv_el_down')continue;if(!inc&&(k.indexOf('jv_key_')===0||k==='jv_el_key'||k==='jv_gw'))continue;o[k]=localStorage.getItem(k)}}catch(e){}
 var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify({app:'mitca',v:1,fecha:new Date().toISOString(),data:o},null,1)],{type:'application/json'}));
 a.download='mitca-respaldo-'+new Date().toISOString().slice(0,10)+'.json';document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},1000);
 $('bkm').textContent='Respaldo creado.'+(inc?' Incluye tus llaves: guárdalo en un lugar seguro.':'')});
@@ -651,6 +665,20 @@ var FILERE=/(word|excel|docx|xlsx|csv|documento|hoja|planilla|archivo|presupuest
 $('pal').value=store('jv_pal')||'auto';$('pal').addEventListener('change',function(){store('jv_pal',$('pal').value)});
 $('fcl').checked=store('jv_fcl')==='1';$('fcl').addEventListener('change',function(){store('jv_fcl',$('fcl').checked?'1':'0')});
 $('fbm').value=store('jv_fbm')||'gemini-3.5-flash-lite';$('fbm').addEventListener('change',function(){store('jv_fbm',$('fbm').value.trim())});
+
+function gwShow(t){var e=$('gws');if(e)e.textContent=t}
+async function gwRefresh(){var b=gwBase();if(!GW.tok){GW.prov=[];try{localStorage.removeItem('jv_gwst')}catch(e){}gwShow('Sin token: Mitca usa las llaves guardadas en este celular.');return}
+if(!b||b.indexOf('REEMPLAZA-ESTA-URL')!==-1){gwShow('Falta la dirección del Worker en el archivo.');return}
+try{var r=await _gf(b+'/api/status',{headers:{'x-mitca-token':GW.tok,'Accept':'application/json'}});
+if(r.status===401){GW.prov=[];gwShow('Token incorrecto. Revisa que sea igual al de Cloudflare.');return}
+if(!r.ok){gwShow('El Worker respondió '+r.status+'. Revisa que MITCA_TOKEN exista en Cloudflare.');return}
+var d=await r.json();GW.prov=Array.isArray(d.providers)?d.providers:[];try{localStorage.setItem('jv_gwst',JSON.stringify(GW.prov))}catch(e){}
+gwShow(GW.prov.length?'Conectado. Llaves en Cloudflare: '+GW.prov.map(function(x){return x==='eleven'?'ElevenLabs':pn(x)}).join(', ')+'.':'Token correcto, pero aún no hay llaves de IA guardadas en Cloudflare.');
+load()}catch(e){gwShow('No pude conectar con el Worker: '+(e.message||'error'))}}
+$('gwt').value=GW.tok;
+$('gwt').addEventListener('change',function(){GW.tok=$('gwt').value.trim();try{if(GW.tok)localStorage.setItem('jv_gw',GW.tok);else localStorage.removeItem('jv_gw')}catch(e){}gwRefresh()});
+$('gwc').addEventListener('click',function(){if(!confirm('¿Borrar las llaves de IA guardadas en este celular? Solo hazlo si ya las guardaste en Cloudflare.'))return;try{var del=[];for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(k.indexOf('jv_key_')===0||k==='jv_el_key')del.push(k)}del.forEach(function(k){localStorage.removeItem(k)})}catch(e){}gwShow('Llaves locales borradas.');load()});
+if(GW.tok)gwRefresh();
 $('xpfb').checked=store('jv_xpfb')!=='0';$('xpfb').addEventListener('change',function(){store('jv_xpfb',$('xpfb').checked?'1':'0')});
 function vis(x){var i=x.indexOf('<archivo>');if(i>=0)return x.slice(0,i);var T='<archivo>';for(var k=T.length-1;k>0;k--){if(x.slice(-k)===T.slice(0,k))return x.slice(0,-k)}return x}
 function makeFile(raw,el,quiet){try{var t=raw.replace(/<\/archivo>[\s\S]*$/,'').replace(/```(?:json)?/g,'').trim(),f=buildFile(JSON.parse(t));
@@ -689,6 +717,7 @@ wrec.onend=function(){wl=false;if(wake&&!wh&&!on&&$('av').dataset.s==='idle')wak
 try{wrec.start()}catch(e){wl=false}}
 if(!SR)$('wakeb').disabled=true;else $('wakeb').addEventListener('click',function(){unlock();setWake(!wake)});
 setS('idle');
+if('serviceWorker' in navigator&&(location.protocol==='https:'||location.hostname==='localhost')){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){})})}
 if(!store('jv_key_'+cur))setTimeout(openCfg,300);
 })();
 </script>
