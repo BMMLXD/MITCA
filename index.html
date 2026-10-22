@@ -172,6 +172,10 @@ code{background:var(--code);padding:1px 6px;border-radius:5px;font-size:.88em}
 <p class="hint">Pídele “hazme un Excel con mi presupuesto” o “redacta una carta en Word” y aparece un botón para descargarlo. Sirve para documentos sencillos; los largos gastan más créditos de la IA.</p>
 <label class="chk"><input type="checkbox" id="fcl">Usar Claude para crear archivos</label>
 <p class="hint">Claude arma documentos más largos y ordenados. Necesita que hayas guardado antes tu llave de Claude (elígelo arriba una vez). Para platicar sigues con tu IA de siempre.</p>
+<label for="fbm">Modelo de respaldo si se agota la cuota</label>
+<input id="fbm" type="text">
+<p class="hint">Si tu IA responde que ya no hay cuota, Mitca prueba solo con este modelo y, si también falla, con Claude (si guardaste su llave).</p>
+<p id="uso" class="hint"></p>
 <h3>Respaldo</h3>
 <p class="hint">Guarda tus recuerdos y ajustes en un archivo para no perderlos si cambias de celular o borras los datos del navegador.</p>
 <label class="chk"><input type="checkbox" id="bkk">Incluir mis llaves (el archivo será sensible)</label>
@@ -210,7 +214,7 @@ $('key').addEventListener('change',save);$('mod').addEventListener('change',save
 var hist=[],curRun=null,ctl=null,MT=300;
 function clearChat(){if(ctl)ctl.abort();curRun=null;stopAudio();hist=[];$('log').innerHTML='';setS('idle');msg('')}
 $('prov').addEventListener('change',function(){save();cur=$('prov').value;store('jv_prov',cur);load();clearChat();msg('Cambiaste a '+(cur==='claude'?'Claude':'Gemini')+'.')});
-$('gear').addEventListener('click',function(){var u=elUntil();
+$('gear').addEventListener('click',function(){showUso();var u=elUntil();
 $('elmsg').textContent=(store('jv_eng')==='eleven'&&u>Date.now())?'ElevenLabs en pausa hasta '+new Date(u).toLocaleString('es-MX',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})+'; mientras tanto usa la voz del celular.':'';openCfg()});
 $('cx').addEventListener('click',function(){save();store('jv_sys',$('sys').value);$('cfg').close()});
 $('clr').addEventListener('click',function(){clearChat();$('cfg').close()});
@@ -294,7 +298,16 @@ for(;;){var x=await rd.read();if(x.done)break;b+=dec.decode(x.value,{stream:true
 if(b)line(b)}
 function bodyC(m,sys){var w=$('web').checked,b={model:m,max_tokens:MT,stream:true,system:sys,messages:hist};if(w)b.tools=[{type:'web_search_20250305',name:'web_search',max_uses:2}];return b}
 function bodyG(sys){var w=$('web').checked,b={systemInstruction:{parts:[{text:sys}]},contents:hist.map(function(h){return{role:h.role==='assistant'?'model':'user',parts:[{text:h.content}]}}),generationConfig:{maxOutputTokens:MT}};if(w)b.tools=[{google_search:{}}];return b}
-async function callAI(k,m,sys,onT,sig,pv){pv=pv||cur;
+function usoGet(){var d=new Date().toISOString().slice(0,10),o={};try{o=JSON.parse(store('jv_use')||'{}')}catch(e){}if(!o||o.d!==d)o={d:d};return o}
+function countUse(pv,m){var o=usoGet(),k=pv+':'+m;o[k]=(o[k]||0)+1;store('jv_use',JSON.stringify(o))}
+function showUso(){var o=usoGet(),t=[];Object.keys(o).forEach(function(k){if(k!=='d')t.push(k.replace(':',' · ')+' = '+o[k])});$('uso').textContent=t.length?'Peticiones de hoy en este celular: '+t.join('; ')+'. La cuota real está en ai.dev/rate-limit.':'Hoy no has hecho peticiones desde este celular.'}
+async function callChain(k,md,pv,sys,onT,sig){var tr=[[k,md,pv]],fb=store('jv_fbm')||'gemini-3.5-flash-lite',ck=store('jv_key_claude'),got=false,last;
+if(pv==='gemini'&&fb&&fb!==md)tr.push([k,fb,'gemini']);
+if(pv==='gemini'&&ck)tr.push([ck,store('jv_mod_claude')||P.claude.model,'claude']);
+for(var i=0;i<tr.length;i++){try{await callAI(tr[i][0],tr[i][1],sys,function(d){got=true;onT(d)},sig,tr[i][2]);if(i>0)msg('Se agotó la cuota: usé '+(tr[i][2]==='claude'?'Claude':tr[i][1])+'.');return tr[i]}
+catch(e){last=e;if(got||e.name==='AbortError'||!/quota|exceed|rate|exhaust|429|overload|unavailable|demand/i.test(e.message||''))throw e}}
+throw last}
+async function callAI(k,m,sys,onT,sig,pv){pv=pv||cur;countUse(pv,m);
 if(pv==='claude'){
 var r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',signal:sig,headers:{'content-type':'application/json','x-api-key':k,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify(bodyC(m,sys))});
 if(!r.ok){var d=await r.json().catch(function(){return{}});throw new Error((d.error&&d.error.message)||r.status)}
@@ -322,11 +335,11 @@ if(!el){el=document.createElement('div');el.className='m a';$('log').appendChild
 el.textContent=v;$('log').scrollTop=$('log').scrollHeight;
 var m;while((m=buf.match(/^([\s\S]*?(?:[.!?…]+["”’)]*\s|\n))/))){buf=buf.slice(m[0].length);pend+=m[1];if(pend.trim().length>=25){part(run,pend);pend=''}}}
 try{
-await callAI(k,md,$('sys').value+nowText()+memText()+(fm?FILEP:''),feed,ctl.signal,pv);
+var used=await callChain(k,md,pv,$('sys').value+nowText()+memText()+(fm?FILEP:''),feed,ctl.signal);
 if(!full)feed('(sin respuesta)');
 var fx=full.match(/<archivo>([\s\S]*)$/),vf=vis(full).trim(),fname=null;
 part(run,pend+buf);fin(run);
-if(fx){fname=makeFile(fx[1],el,true);if(!fname){msg('Corrigiendo el archivo...');fname=await repair(k,md,pv,$('sys').value+nowText()+memText()+FILEP,vf,el);msg('')}}
+if(fx){fname=makeFile(fx[1],el,true);if(!fname){msg('Corrigiendo el archivo...');fname=await repair(used[0],used[1],used[2],$('sys').value+nowText()+memText()+FILEP,vf,el);msg('')}}
 hist.push({role:'assistant',content:(vf+(fx?' [Creé el archivo '+(fname||'sin éxito')+']':''))||'ok'});
 }catch(e){
 if(vis(full).trim()){hist.push({role:'assistant',content:vis(full).trim()})}else{hist.pop();if(el)el.remove()}
@@ -507,6 +520,7 @@ var FILEP='\n\nSi el usuario te pide un documento de Word, una hoja de Excel o u
 var FILERE=/(word|excel|docx|xlsx|csv|documento|hoja|planilla|archivo|presupuesto|carta|informe|reporte|tabla|curr[ií]culum|cv\b|lista de)/i;
 $('pal').value=store('jv_pal')||'auto';$('pal').addEventListener('change',function(){store('jv_pal',$('pal').value)});
 $('fcl').checked=store('jv_fcl')==='1';$('fcl').addEventListener('change',function(){store('jv_fcl',$('fcl').checked?'1':'0')});
+$('fbm').value=store('jv_fbm')||'gemini-3.5-flash-lite';$('fbm').addEventListener('change',function(){store('jv_fbm',$('fbm').value.trim())});
 function vis(x){var i=x.indexOf('<archivo>');if(i>=0)return x.slice(0,i);var T='<archivo>';for(var k=T.length-1;k>0;k--){if(x.slice(-k)===T.slice(0,k))return x.slice(0,-k)}return x}
 function makeFile(raw,el,quiet){try{var t=raw.replace(/<\/archivo>[\s\S]*$/,'').replace(/```(?:json)?/g,'').trim(),f=buildFile(JSON.parse(t));
 var h=el||add('a','Tu archivo está listo.');h.appendChild(document.createElement('br'));
