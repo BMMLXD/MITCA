@@ -70,6 +70,11 @@ details{background:var(--card);border:1px solid var(--line);border-radius:12px;p
 summary{cursor:pointer;min-height:48px;display:flex;align-items:center;font-weight:600}
 details ol,details ul{padding-left:1.2em;margin:.3em 0 .8em;font-size:.95rem}
 [hidden]{display:none!important}
+.chk{display:flex;gap:12px;align-items:center;margin:14px 0 4px;color:var(--ink);font-size:1rem}
+.chk input{width:26px;height:26px;accent-color:var(--acc);flex:none}
+.lnk{display:inline-block;margin-top:8px;padding:10px 14px;border-radius:10px;background:var(--acc);color:var(--onacc);font-weight:600;text-decoration:none}
+#diag{list-style:none;padding:0;margin:10px 0}
+#diag li{padding:6px 0;border-bottom:1px solid var(--line);font-size:.95rem}
 code{background:var(--code);padding:1px 6px;border-radius:5px;font-size:.88em}
 </style>
 </head>
@@ -158,6 +163,19 @@ code{background:var(--code);padding:1px 6px;border-radius:5px;font-size:.88em}
 <input id="memI" type="text" placeholder="Me gusta el café sin azúcar">
 <div class="row"><button id="memA" type="button">Guardar</button><button id="memC" class="sec" type="button">Borrar todo</button></div>
 
+<h3>Búsqueda en internet</h3>
+<label class="chk"><input type="checkbox" id="web">Dejar que Mitca busque en internet cuando haga falta</label>
+<p class="hint">Sirve para noticias, clima o datos actuales. Con Gemini gratis tiene límites diarios; con Claude cada búsqueda tiene costo (unos $10 USD por 1,000, revisa el precio vigente). Si da error, apágala.</p>
+<h3>Respaldo</h3>
+<p class="hint">Guarda tus recuerdos y ajustes en un archivo para no perderlos si cambias de celular o borras los datos del navegador.</p>
+<label class="chk"><input type="checkbox" id="bkk">Incluir mis llaves (el archivo será sensible)</label>
+<div class="row"><button id="bke" class="sec" type="button">Exportar respaldo</button><button id="bkb" class="sec" type="button">Importar respaldo</button></div>
+<input id="bki" type="file" accept=".json,application/json" hidden>
+<p id="bkm" class="hint"></p>
+<h3>Revisar que todo funcione</h3>
+<p class="hint">Prueba el micrófono, las voces y tu llave en este celular. Te pedirá permiso para usar el micrófono.</p>
+<div class="row"><button id="dgo" type="button">Probar todo</button></div>
+<ul id="diag"></ul>
 <h3>Charla</h3>
 <div class="row"><button id="clr" class="sec" type="button">Borrar conversación</button></div>
 </div>
@@ -191,7 +209,7 @@ $('elmsg').textContent=(store('jv_eng')==='eleven'&&u>Date.now())?'ElevenLabs en
 $('cx').addEventListener('click',function(){save();store('jv_sys',$('sys').value);$('cfg').close()});
 $('clr').addEventListener('click',function(){clearChat();$('cfg').close()});
 /* chat */
-function add(c,t){var d=document.createElement('div');d.className='m '+c;d.textContent=t;$('log').appendChild(d);$('log').scrollTop=$('log').scrollHeight}
+function add(c,t){var d=document.createElement('div');d.className='m '+c;d.textContent=t;$('log').appendChild(d);$('log').scrollTop=$('log').scrollHeight;return d}
 function voices(){return window.speechSynthesis?speechSynthesis.getVoices().filter(function(v){return /^es/i.test(v.lang)}):[]}
 function fillV(){var vs=voices(),c=store('jv_voz')||'',sel=$('voz');sel.innerHTML='';
 var d=document.createElement('option');d.value='';d.textContent=vs.length?'Voz predeterminada':'(no hay voces en español)';sel.appendChild(d);
@@ -268,19 +286,25 @@ if(!resp.body||!resp.body.getReader){(await resp.text()).split('\n').forEach(lin
 var rd=resp.body.getReader(),dec=new TextDecoder(),b='';
 for(;;){var x=await rd.read();if(x.done)break;b+=dec.decode(x.value,{stream:true});var i;while((i=b.indexOf('\n'))>=0){var l=b.slice(0,i);b=b.slice(i+1);line(l)}}
 if(b)line(b)}
+function bodyC(m,sys){var w=$('web').checked,b={model:m,max_tokens:w?800:300,stream:true,system:sys,messages:hist};if(w)b.tools=[{type:'web_search_20250305',name:'web_search',max_uses:2}];return b}
+function bodyG(sys){var w=$('web').checked,b={systemInstruction:{parts:[{text:sys}]},contents:hist.map(function(h){return{role:h.role==='assistant'?'model':'user',parts:[{text:h.content}]}}),generationConfig:{maxOutputTokens:w?800:300}};if(w)b.tools=[{google_search:{}}];return b}
 async function callAI(k,m,sys,onT,sig){
 if(cur==='claude'){
-var r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',signal:sig,headers:{'content-type':'application/json','x-api-key':k,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:m,max_tokens:300,stream:true,system:sys,messages:hist})});
+var r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',signal:sig,headers:{'content-type':'application/json','x-api-key':k,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify(bodyC(m,sys))});
 if(!r.ok){var d=await r.json().catch(function(){return{}});throw new Error((d.error&&d.error.message)||r.status)}
 await sse(r,function(o){if(o.type==='error')throw new Error((o.error&&o.error.message)||'error');if(o.type==='content_block_delta'&&o.delta&&o.delta.type==='text_delta')onT(o.delta.text)});
 return}
 var r2=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(m)+':streamGenerateContent?alt=sse',{method:'POST',signal:sig,headers:{'content-type':'application/json','x-goog-api-key':k},
-body:JSON.stringify({systemInstruction:{parts:[{text:sys}]},contents:hist.map(function(h){return{role:h.role==='assistant'?'model':'user',parts:[{text:h.content}]}}),generationConfig:{maxOutputTokens:300}})});
+body:JSON.stringify(bodyG(sys))});
 if(!r2.ok){var d2=await r2.json().catch(function(){return{}});if(Array.isArray(d2))d2=d2[0]||{};throw new Error((d2.error&&d2.error.message)||r2.status)}
 await sse(r2,function(o){var c=o.candidates&&o.candidates[0];((c&&c.content&&c.content.parts)||[]).forEach(function(p){if(p.text)onT(p.text)})})}
 async function ask(text){
 text=(text||'').trim();if(!text)return;
 var mm=text.match(/^\s*(?:mitca[,:]?\s+)?(?:recuerda|acuérdate|acuerdate|anota|guarda)(?:\s+que)?\s+(.+)/i);if(mm)memAdd(mm[1]);
+var it=localIntent(text);
+if(it){add('u',text);hist.push({role:'user',content:text});var bb=add('a',it.reply);
+if(it.link){bb.appendChild(document.createElement('br'));var al=document.createElement('a');al.className='lnk';al.href=it.link.url;al.target='_blank';al.rel='noopener';al.textContent=it.link.lab;bb.appendChild(al)}
+hist.push({role:'assistant',content:it.reply});say(it.reply);return}
 var k=$('key').value.trim();
 if(!k){setConv(false);setS('idle');msg('Falta tu llave: pégala en Configuración.');openCfg();return}
 save();msg('');
@@ -320,9 +344,56 @@ if(!SR){$('mic').disabled=true;$('convb').disabled=true;msg('Tu navegador no tie
 else{
 $('mic').addEventListener('click',function(){unlock();if(on){setConv(false);rec.stop();return}listen()});
 $('convb').addEventListener('click',function(){unlock();setConv(!conv);if(conv&&!on)listen()})}
+/* temporizadores y enlaces */
+var NUM={un:1,una:1,dos:2,tres:3,cuatro:4,cinco:5,seis:6,siete:7,ocho:8,nueve:9,diez:10,quince:15,veinte:20,treinta:30,cuarenta:40,'cuarenta y cinco':45,cincuenta:50,sesenta:60},tms=[];
+function fold(t){return t.toLowerCase().split('').map(function(c){return c.normalize('NFD').charAt(0)}).join('')}
+function parseDur(t){var f=fold(t);if(/media hora/.test(f))return{ms:18e5,lb:'media hora'};if(/cuarto de hora/.test(f))return{ms:9e5,lb:'un cuarto de hora'};
+var m=f.match(/(\d+(?:[.,]\d+)?|cuarenta y cinco|un|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|quince|veinte|treinta|cuarenta|cincuenta|sesenta)\s*(segundos?|minutos?|horas?)/);if(!m)return null;
+var n=isNaN(parseFloat(m[1]))?NUM[m[1]]:parseFloat(m[1].replace(',','.')),c=m[2].charAt(0),u=c==='s'?1e3:(c==='m'?6e4:36e5);
+if(!n||n<=0||n*u>864e5)return null;return{ms:n*u,lb:m[0]}}
+function beep(){try{var c=new (window.AudioContext||window.webkitAudioContext)(),o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.frequency.value=880;g.gain.value=.2;o.start();setTimeout(function(){o.stop();c.close()},600)}catch(e){}}
+function startTimer(d){var id=setTimeout(function(){tms=tms.filter(function(x){return x!==id});beep();try{if(navigator.vibrate)navigator.vibrate([300,150,300])}catch(e){}
+var m='Tu temporizador de '+d.lb+' terminó.';add('a',m);say(m)},d.ms);tms.push(id)}
+function lk2(lab,url){return{reply:'Listo, toca el botón para abrirlo.',link:{lab:lab,url:url}}}
+function localIntent(text){var f=fold(text),m;
+if(/(cancela|quita|para|deten)\w*.*(temporizador|timer|alarma)/.test(f)){var n=tms.length;tms.forEach(clearTimeout);tms=[];return{reply:n?'Listo, cancelé el temporizador.':'No hay ningún temporizador activo.'}}
+if(/(temporizador|timer|avisame|recuerdame|alarma|cuenta regresiva)/.test(f)){var d=parseDur(text);if(d){startTimer(d);return{reply:'Listo, te aviso en '+d.lb+'. Mantén esta página abierta.'}}}
+var cl=function(x){return x.replace(/[.?!¿¡]+$/,'').trim()};
+if((m=text.match(/busca(?:r)?(?: en)? google\s+(.+)/i)))return lk2('Buscar en Google','https://www.google.com/search?q='+encodeURIComponent(cl(m[1])));
+if((m=text.match(/(?:pon|busca|abre|reproduce)(?:me)?\s+(.+?)\s+en youtube/i))||(m=text.match(/(?:abre|pon|busca)\s+youtube\s+(?:con |de )?(.+)/i)))return lk2('Abrir en YouTube','https://www.youtube.com/results?search_query='+encodeURIComponent(cl(m[1])));
+if((m=text.match(/(?:como llego a|cómo llego a|ruta a|navega a|llevame a|llévame a|busca en maps|mapa de)\s+(.+)/i)))return lk2('Abrir en Maps','https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(cl(m[1])));
+return null}
+$('web').checked=store('jv_web')==='1';$('web').addEventListener('change',function(){store('jv_web',$('web').checked?'1':'0')});
+/* respaldo */
+$('bke').addEventListener('click',function(){var inc=$('bkk').checked,o={};
+try{for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(k.indexOf('jv_')!==0||k==='jv_el_until'||k==='jv_el_down')continue;if(!inc&&(k.indexOf('jv_key_')===0||k==='jv_el_key'))continue;o[k]=localStorage.getItem(k)}}catch(e){}
+var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify({app:'mitca',v:1,fecha:new Date().toISOString(),data:o},null,1)],{type:'application/json'}));
+a.download='mitca-respaldo-'+new Date().toISOString().slice(0,10)+'.json';document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},1000);
+$('bkm').textContent='Respaldo creado.'+(inc?' Incluye tus llaves: guárdalo en un lugar seguro.':'')});
+$('bkb').addEventListener('click',function(){$('bki').click()});
+$('bki').addEventListener('change',function(){var f=this.files[0],inp=this;if(!f)return;var rd=new FileReader();
+rd.onload=function(){try{var j=JSON.parse(rd.result);if(!j||j.app!=='mitca'||typeof j.data!=='object')throw 1;var n=0;
+Object.keys(j.data).forEach(function(k){var v=j.data[k];if(/^jv_[a-z_]+$/.test(k)&&k!=='jv_el_until'&&k!=='jv_el_down'&&typeof v==='string'&&v.length<100000){store(k,v);n++}});
+$('bkm').textContent='Importé '+n+' datos. Recargando...';setTimeout(function(){location.reload()},900)}catch(e){$('bkm').textContent='Ese archivo no parece un respaldo de Mitca.'}};
+rd.readAsText(f);inp.value=''});
+/* diagnóstico */
+function drow(ok,t){var li=document.createElement('li');li.textContent=(ok===true?'✓ ':ok===false?'✗ ':'• ')+t;$('diag').appendChild(li)}
+async function pingAI(){var k=$('key').value.trim(),m=$('mod').value.trim();if(!k)throw new Error('falta la llave');
+if(cur==='claude'){var r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'content-type':'application/json','x-api-key':k,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:m,max_tokens:10,messages:[{role:'user',content:'Responde solo: ok'}]})});var d=await r.json();if(!r.ok)throw new Error((d.error&&d.error.message)||r.status);return}
+var r2=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(m)+':generateContent',{method:'POST',headers:{'content-type':'application/json','x-goog-api-key':k},body:JSON.stringify({contents:[{role:'user',parts:[{text:'Responde solo: ok'}]}],generationConfig:{maxOutputTokens:10}})});
+var d2=await r2.json();if(!r2.ok)throw new Error((d2.error&&d2.error.message)||r2.status)}
+$('dgo').addEventListener('click',async function(){var b=$('dgo');b.disabled=true;$('diag').innerHTML='';save();
+drow(location.protocol==='https:'||location.hostname==='localhost','Página segura (https)'+((location.protocol==='https:'||location.hostname==='localhost')?'':': el micrófono puede fallar, abre la página desde tu dirección de GitHub'));
+drow(!!SR,'Reconocimiento de voz del navegador'+(SR?'':': usa Chrome o Safari'));
+try{var st=await navigator.mediaDevices.getUserMedia({audio:true});st.getTracks().forEach(function(t){t.stop()});drow(true,'Micrófono con permiso')}catch(e){drow(false,'Micrófono: '+(e.name||'error')+'. Permítelo en los ajustes del sitio')}
+var nv=voices().length;drow('speechSynthesis' in window&&nv>0,'Voces en español del celular: '+nv);
+try{await pingAI();drow(true,(cur==='claude'?'Claude':'Gemini')+' responde con tu llave y modelo')}catch(e){drow(false,(cur==='claude'?'Claude':'Gemini')+': '+(e.message||'error'))}
+if(store('jv_eng')==='eleven'&&store('jv_el_key')){try{var r=await fetch('https://api.elevenlabs.io/v1/text-to-speech/'+encodeURIComponent(store('jv_el_voice')||EVD)+'?output_format=mp3_44100_64',{method:'POST',headers:{'xi-api-key':store('jv_el_key'),'content-type':'application/json'},body:JSON.stringify({text:'Hola',model_id:store('jv_el_model')||'eleven_flash_v2_5'})});if(!r.ok){var d=await r.json().catch(function(){return{}});throw elErr(r,d)}drow(true,'ElevenLabs responde (gastó unos pocos créditos)')}catch(e){drow(false,'ElevenLabs: '+(e.message||'error'))}}
+drow('wakeLock' in navigator?true:null,'Mantener la pantalla encendida: '+('wakeLock' in navigator?'disponible':'no disponible en este navegador'));
+var ls=false;try{localStorage.setItem('jv_t','1');localStorage.removeItem('jv_t');ls=true}catch(e){}drow(ls,'Guardado de ajustes y memoria en el celular');
+b.disabled=false});
 /* activación por voz */
 $('wkw').value=store('jv_wake')||'mitca, mitka';$('wkw').addEventListener('change',function(){store('jv_wake',$('wkw').value)});
-function fold(t){return t.toLowerCase().split('').map(function(c){return c.normalize('NFD').charAt(0)}).join('')}
 function wwords(){return (store('jv_wake')||'mitca, mitka').split(',').map(function(x){return fold(x.trim())}).filter(Boolean)}
 var lk=null;
 async function lockScr(){try{if(wake&&navigator.wakeLock)lk=await navigator.wakeLock.request('screen')}catch(e){}}
