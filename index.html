@@ -144,6 +144,8 @@ button,.av,.m{transition:background-color .3s,border-color .3s}
 <label for="pers">¿Quién te atiende?</label>
 <select id="pers"><option value="a">Mitca · ENTP, ingeniosa y sarcástica</option><option value="b">Marcia · INFJ, empática e intuitiva (pantalla verde)</option><option value="c">Marcos · INTP, nervioso y nerd</option><option value="d">Miranda · ESTJ, práctica y decidida (pantalla roja)</option></select>
 <p class="hint">Al cambiar de personalidad se borra la charla en pantalla para que no se mezclen los estilos. Tus recuerdos se conservan.</p>
+<label class="chk"><input type="checkbox" id="auto">Cambiar de personalidad automáticamente según la tarea</label>
+<p class="hint">Marcos: Word, Excel, archivos e investigaciones. Miranda: cocina y cuidados (hogar, salud, mascotas, plantas). Marcia: casa inteligente. Mitca: conversación y consultas normales. Si tú eliges una a mano con el botón, se queda hasta que pidas algo de otra área.</p>
 <textarea id="sys" hidden></textarea>
 
 <h3>Voz</h3>
@@ -230,9 +232,22 @@ var pers=store('jv_pers');if(!NM[pers])pers='a';
 function applyPers(clear){$('sys').value=pers==='b'?DS2:pers==='c'?DS3:pers==='d'?DS4:DS;document.body.classList.toggle('p2',pers==='b');document.body.classList.toggle('p3',pers==='c');document.body.classList.toggle('p4',pers==='d');$('pers').value=pers;$('nm').textContent=NM[pers];$('av').setAttribute('aria-label',NM[pers]);$('log').dataset.ph='Toca el micrófono o escribe para hablar con '+NM[pers]+'.';document.title=NM[pers];$('voz').previousElementSibling.textContent='Voz de '+NM[pers]+' (celular)';$('elvs').previousElementSibling.textContent='Voz de '+NM[pers]+' (ElevenLabs)';if(clear&&typeof elOpts==='function'){fillV();elOpts(elList)}$('persb').textContent=NM[pers];
 ['N','L','T','S'].forEach(function(k){$('i'+k).src=AV[pers][k]});
 if(clear)clearChat()}
-$('pers').addEventListener('change',function(){pers=NM[$('pers').value]?$('pers').value:'a';store('jv_pers',pers);applyPers(true)});
-$('persb').addEventListener('click',function(){pers={a:'b',b:'c',c:'d',d:'a'}[pers];store('jv_pers',pers);applyPers(true)});
+var man=false,lastM=0;
+$('pers').addEventListener('change',function(){man=true;pers=NM[$('pers').value]?$('pers').value:'a';store('jv_pers',pers);applyPers(true)});
+$('persb').addEventListener('click',function(){man=true;pers={a:'b',b:'c',c:'d',d:'a'}[pers];store('jv_pers',pers);applyPers(true)});
 applyPers(false);
+/* personalidad automática según la tarea */
+function routeP(t){var f=fold(t);
+if(/\b(enciend\w*|prend\w*|apag\w*)\b.*\b(luz|luces|foco|focos|lampara\w*|ventilador|television|tele|aire|clima|minisplit|enchufe\w*|cortina\w*|persiana\w*|cerradura|bocina|calefactor)\b|casa inteligente|domotica|\balexa\b|google home|home assistant|foco inteligente/.test(f))return'b';
+if(/\b(word|excel|docx|xlsx|csv|documento|hoja de calculo|presupuesto|reporte|informe|curriculum|cv|plantilla|cronograma|factura|carta|archivo)\b/.test(f))return'c';
+if(/\b(receta|cocin|hornear|hornea|ingrediente|desayuno|comida|cena|almuerzo|platillo|postre|guis|cuidar|cuidados|cuidado de|mascota|bebe|ninos|plantas?|jardin|limpieza|dieta|nutricion|salud)/.test(f))return'd';
+if(/\b(investig|averigu|analiz|compar|busca informacion)/.test(f))return'c';
+return null}
+function autoSwitch(p){if(p===pers)return;pers=p;store('jv_pers',pers);applyPers(false);fillV();elOpts(elList)}
+function autoRoute(t){if(!$('auto').checked)return;var p=routeP(t),now=Date.now();
+if(p){man=false;lastM=now}else if(man||now-lastM<18e4)return;else p='a';
+autoSwitch(p)}
+$('auto').checked=store('jv_auto')!=='0';$('auto').addEventListener('change',function(){store('jv_auto',$('auto').checked?'1':'0')});
 $('sys').addEventListener('change',function(){store('jv_sys',$('sys').value)});
 $('key').addEventListener('change',save);$('mod').addEventListener('change',save);
 var hist=[],curRun=null,ctl=null,MT=300;
@@ -362,6 +377,7 @@ if(!r2.ok){var d2=await r2.json().catch(function(){return{}});if(Array.isArray(d
 await sse(r2,function(o){var c=o.candidates&&o.candidates[0];((c&&c.content&&c.content.parts)||[]).forEach(function(p){if(p.text)onT(p.text)})})}
 async function ask(text){
 text=(text||'').trim();if(!text)return;
+autoRoute(text);
 var mm=text.match(/^\s*(?:(?:mitca|marcia)[,:]?\s+)?(?:recuerda|acuérdate|acuerdate|anota|guarda)(?:\s+que)?\s+(.+)/i);if(mm)memAdd(mm[1]);
 var mb=mbIntent(text);if(mb){mbRun(text,mb.q,mb.alb);return}
 var it=localIntent(text);
