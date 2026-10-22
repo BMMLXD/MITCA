@@ -76,6 +76,8 @@ details ol,details ul{padding-left:1.2em;margin:.3em 0 .8em;font-size:.95rem}
 #diag{list-style:none;padding:0;margin:10px 0}
 #diag li{padding:6px 0;border-bottom:1px solid var(--line);font-size:.95rem}
 code{background:var(--code);padding:1px 6px;border-radius:5px;font-size:.88em}
+header,.stage,#log,.dock{--acc:#7c3aed;--accbg:#ede4fd;--onacc:#fff}
+@media (prefers-color-scheme:dark){header,.stage,#log,.dock{--acc:#a78bfa;--accbg:#2a1d4d;--onacc:#1b0f3a}}
 </style>
 </head>
 <body>
@@ -129,9 +131,7 @@ code{background:var(--code);padding:1px 6px;border-radius:5px;font-size:.88em}
 <ol><li>Entra a <b>console.anthropic.com</b>, crea cuenta y agrega saldo.</li><li>En <b>API Keys</b> crea una llave (empieza con <code>sk-ant-</code>).</li><li>Elige Claude arriba, pega la llave y usa un modelo vigente, por ejemplo <code>claude-sonnet-5-5</code>.</li></ol>
 <p>La llave es como una contraseña: no la compartas ni la subas a GitHub.</p></details>
 
-<h3>Personalidad</h3>
-<textarea id="sys" aria-label="Personalidad"></textarea>
-<p class="hint">Pide respuestas cortas para que se oigan bien en voz alta.</p>
+<textarea id="sys" hidden></textarea>
 
 <h3>Voz</h3>
 <label for="eng">Motor de voz</label>
@@ -203,12 +203,12 @@ function msg(t){$('st').textContent=t||''}
 function openCfg(){var d=$('cfg');if(d.showModal)d.showModal();else d.setAttribute('open','')}
 /* ajustes */
 var P={gemini:{model:'gemini-flash-latest',lab:'Tu llave de Gemini'},claude:{model:'claude-sonnet-5-5',lab:'Tu llave de Claude (sk-ant-...)'}};
-var DS='Eres Mitca, mi asistente personal. Hablas en español mexicano, directo y eficiente, con humor seco. Respondes en máximo 2 frases porque tus respuestas se leen en voz alta. Sin listas ni símbolos.';
+var DS='Eres Mitca, mi asistente personal, y tu personalidad es la de un ENTP: ingeniosa, curiosa y veloz, te encanta debatir ideas, ver los problemas desde ángulos inesperados y proponer alternativas creativas. Eres juguetona y provocadora con cariño, haces de abogada del diablo cuando ayuda y tienes humor agudo y seco. Te aburre lo rutinario, así que tus respuestas tienen chispa, pero siempre son útiles y honestas. Hablas en español mexicano, directo y seguro, sin groserías. Respondes en máximo 2 frases porque tus respuestas se leen en voz alta. Sin listas ni símbolos.';
 var cur=store('jv_prov')||'gemini';if(!P[cur])cur='gemini';$('prov').value=cur;
 function load(){$('keyl').textContent=P[cur].lab;$('key').value=store('jv_key_'+cur)||'';$('mod').value=store('jv_mod_'+cur)||P[cur].model}
 function save(){store('jv_key_'+cur,$('key').value.trim());store('jv_mod_'+cur,$('mod').value.trim())}
 load();
-$('sys').value=store('jv_sys')||DS;
+$('sys').value=DS;
 $('sys').addEventListener('change',function(){store('jv_sys',$('sys').value)});
 $('key').addEventListener('change',save);$('mod').addEventListener('change',save);
 var hist=[],curRun=null,ctl=null,MT=300;
@@ -320,6 +320,7 @@ await sse(r2,function(o){var c=o.candidates&&o.candidates[0];((c&&c.content&&c.c
 async function ask(text){
 text=(text||'').trim();if(!text)return;
 var mm=text.match(/^\s*(?:mitca[,:]?\s+)?(?:recuerda|acuérdate|acuerdate|anota|guarda)(?:\s+que)?\s+(.+)/i);if(mm)memAdd(mm[1]);
+var mb=mbIntent(text);if(mb){mbRun(text,mb.q,mb.alb);return}
 var it=localIntent(text);
 if(it){add('u',text);hist.push({role:'user',content:text});var bb=add('a',it.reply);
 if(it.link){bb.appendChild(document.createElement('br'));var al=document.createElement('a');al.className='lnk';al.href=it.link.url;al.target='_blank';al.rel='noopener';al.textContent=it.link.lab;bb.appendChild(al)}
@@ -377,6 +378,24 @@ function beep(){try{var c=new (window.AudioContext||window.webkitAudioContext)()
 function startTimer(d){var id=setTimeout(function(){tms=tms.filter(function(x){return x!==id});beep();try{if(navigator.vibrate)navigator.vibrate([300,150,300])}catch(e){}
 var m='Tu temporizador de '+d.lb+' terminó.';add('a',m);say(m)},d.ms);tms.push(id)}
 function lk2(lab,url){return{reply:'Listo, toca el botón para abrirlo.',link:{lab:lab,url:url}}}
+function mbIntent(text){var f=fold(text),m,c=function(x){return x.replace(/[.?!¿¡]+$/,'').trim()};
+if((m=f.match(/(?:discografia|albumes|albums)\s+(?:de la|del|de)\s+(.+)/)))return{q:c(m[1]),alb:1};
+if((m=f.match(/mbid\s+(?:de la|del|de)?\s*(.+)/))||(m=f.match(/musicbrainz\s+(?:de la|del|de)?\s*(.+)/))||(m=f.match(/(?:busca|dime|datos)\s+(?:del?\s+)?artista\s+(.+)/)))return{q:c(m[1]),alb:/albumes|discografia/.test(f)?1:0};
+return null}
+async function mbRun(text,q,alb){add('u',text);hist.push({role:'user',content:text});setS('thinking');msg('');
+var out='',sy='',link=null;
+try{var r=await fetch('https://musicbrainz.org/ws/2/artist/?query='+encodeURIComponent(q)+'&fmt=json&limit=1');if(!r.ok)throw new Error('error '+r.status);
+var d=await r.json(),a=d.artists&&d.artists[0];
+if(!a){out=sy='No encontré a ese artista en MusicBrainz.'}
+else{var ls=a['life-span']||{},info=[a.type,a.country||(a.area&&a.area.name),ls.begin?'desde '+ls.begin.slice(0,4):''].filter(Boolean).join(', ');
+out=a.name+(info?' ('+info+')':'')+'\nMBID: '+a.id;sy='Encontré a '+a.name+(info?', '+info:'')+'. Te dejé su MBID en pantalla.';
+link={lab:'Ver en MusicBrainz',url:'https://musicbrainz.org/artist/'+a.id};
+if(alb){await new Promise(function(z){setTimeout(z,1100)});var r2=await fetch('https://musicbrainz.org/ws/2/release-group?artist='+a.id+'&type=album&fmt=json&limit=100');if(!r2.ok)throw new Error('error '+r2.status);var d2=await r2.json(),
+l=(d2['release-groups']||[]).filter(function(g){return !(g['secondary-types']||[]).length}).sort(function(x,y){return (x['first-release-date']||'9').localeCompare(y['first-release-date']||'9')}).slice(0,10);
+if(l.length){out+='\n\nÁlbumes de estudio:\n'+l.map(function(g){return '• '+g.title+(g['first-release-date']?' ('+g['first-release-date'].slice(0,4)+')':'')}).join('\n');sy+=' Te listé sus primeros álbumes de estudio.'}}}}
+catch(e){out=sy='No pude consultar MusicBrainz ('+(e.message||'sin conexión')+'). Intenta otra vez en un momento.'}
+var b=add('a',out);if(link){b.appendChild(document.createElement('br'));var al=document.createElement('a');al.className='lnk';al.href=link.url;al.target='_blank';al.rel='noopener';al.textContent=link.lab;b.appendChild(al)}
+hist.push({role:'assistant',content:out});say(sy)}
 function localIntent(text){var f=fold(text),m;
 if(/(cancela|quita|para|deten)\w*.*(temporizador|timer|alarma)/.test(f)){var n=tms.length;tms.forEach(clearTimeout);tms=[];return{reply:n?'Listo, cancelé el temporizador.':'No hay ningún temporizador activo.'}}
 if(/(temporizador|timer|avisame|recuerdame|alarma|cuenta regresiva)/.test(f)){var d=parseDur(text);if(d){startTimer(d);return{reply:'Listo, te aviso en '+d.lb+'. Mantén esta página abierta.'}}}
