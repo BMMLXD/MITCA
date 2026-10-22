@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tu JARVIS paso a paso</title>
+<style>
+:root{--bg:#f3f6f9;--card:#fff;--ink:#14202b;--mut:#5a6b7a;--line:#d5dee6;--acc:#0a7ea4;--accbg:#e1f3f9;--warn:#fff4d6;--warnink:#6b4a00;--code:#eaf0f5}
+@media (prefers-color-scheme:dark){:root{--bg:#0d1620;--card:#142230;--ink:#e6eef5;--mut:#93a6b6;--line:#243746;--acc:#4cc9f0;--accbg:#10303d;--warn:#3a2e0f;--warnink:#f5d98a;--code:#0b1b27}}
+*{box-sizing:border-box}
+html{scroll-padding-top:12px}
+body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0)}
+main{max-width:720px;margin:0 auto;padding:20px 16px 60px}
+h1{font-size:1.9rem;line-height:1.15;margin:8px 0 6px}
+h2{font-size:1.2rem;margin:0;line-height:1.3}
+p{margin:.6em 0}
+.lead{color:var(--mut);margin-bottom:18px}
+.flow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:14px 0 22px;font-size:.9rem}
+.flow span{background:var(--accbg);color:var(--ink);border:1px solid var(--acc);border-radius:999px;padding:4px 12px}
+.flow i{color:var(--mut);font-style:normal}
+details{background:var(--card);border:1px solid var(--line);border-radius:12px;margin:10px 0;overflow:hidden}
+summary{cursor:pointer;list-style:none;padding:14px 16px;display:flex;gap:12px;align-items:center;min-height:56px}
+summary::-webkit-details-marker{display:none}
+.n{flex:none;width:34px;height:34px;border-radius:50%;background:var(--acc);color:#fff;display:grid;place-items:center;font-weight:700}
+@media (prefers-color-scheme:dark){.n{color:#06202b}}
+.body{padding:0 16px 16px;border-top:1px solid var(--line)}
+details[open] summary{background:var(--accbg)}
+.done{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:.85rem;color:var(--mut)}
+.done input{width:22px;height:22px;accent-color:var(--acc)}
+ul,ol{padding-left:1.2em;margin:.5em 0}
+li{margin:.3em 0}
+code{background:var(--code);padding:1px 6px;border-radius:5px;font-size:.88em}
+.note{background:var(--warn);color:var(--warnink);border-radius:10px;padding:10px 14px;margin:12px 0;font-size:.95rem}
+a{color:var(--acc)}
+label{display:block;font-size:.9rem;color:var(--mut);margin:12px 0 4px}
+input[type=text],input[type=password],textarea,select{width:100%;font:inherit;font-size:16px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink)}
+textarea{min-height:110px;resize:vertical}
+button{font:inherit;font-weight:600;border:0;border-radius:10px;padding:12px 18px;min-height:48px;background:var(--acc);color:#fff;cursor:pointer}
+@media (prefers-color-scheme:dark){button{color:#06202b}}
+button.sec{background:var(--accbg);color:var(--ink);border:1px solid var(--acc)}
+button:focus-visible,summary:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+#mic{flex:1 1 100%;min-height:64px;font-size:1.1rem}
+#mic.on{background:#c0392b;color:#fff}
+#log{margin-top:14px;display:flex;flex-direction:column;gap:8px}
+.m{padding:10px 14px;border-radius:12px;max-width:92%;white-space:pre-wrap}
+.u{align-self:flex-end;background:var(--accbg);border:1px solid var(--acc)}
+.a{align-self:flex-start;background:var(--card);border:1px solid var(--line)}
+#st{color:var(--mut);font-size:.9rem;min-height:1.4em;margin-top:8px}
+.prog{height:8px;background:var(--line);border-radius:99px;overflow:hidden;margin:6px 0 14px}
+.prog div{height:100%;width:0;background:var(--acc);transition:width .3s}
+@media (prefers-reduced-motion:reduce){.prog div{transition:none}}
+</style>
+</head>
+<body>
+<main>
+<h1>Tu propio JARVIS, paso a paso</h1>
+<p class="lead">Un asistente con voz que usa una IA como cerebro: Gemini gratis para empezar y Claude cuando quieras. Aquí aprendes lo básico y, en el paso 5, lo pruebas en este mismo celular o tableta.</p>
+
+<div class="flow" aria-label="Cómo funciona">
+<span>Tú hablas</span><i>›</i><span>Voz a texto</span><i>›</i><span>La IA piensa</span><i>›</i><span>Texto a voz</span><i>›</i><span>Te responde</span>
+</div>
+
+<div class="prog" aria-hidden="true"><div id="bar"></div></div>
+
+<details open data-s="1">
+<summary><span class="n">1</span><h2>Entiende las 3 piezas</h2><label class="done"><input type="checkbox" aria-label="Paso 1 listo">listo</label></summary>
+<div class="body">
+<p>Un JARVIS siempre son tres piezas conectadas:</p>
+<ul>
+<li><b>Oídos:</b> convierten tu voz en texto.</li>
+<li><b>Cerebro:</b> la IA (Gemini o Claude) recibe ese texto y escribe la respuesta.</li>
+<li><b>Boca:</b> convierte la respuesta en voz.</li>
+</ul>
+<p>Todo lo demás (la imagen, la palabra de activación, el nombre) es decoración encima de estas tres piezas.</p>
+</div>
+</details>
+
+<details data-s="2">
+<summary><span class="n">2</span><h2>Consigue tu llave gratis (Gemini)</h2><label class="done"><input type="checkbox" aria-label="Paso 2 listo">listo</label></summary>
+<div class="body">
+<ol>
+<li>Entra a <b>aistudio.google.com</b> con tu cuenta de Google.</li>
+<li>Busca <b>Get API key</b> y crea una llave. Empieza con <code>AIza</code>.</li>
+<li>Cópiala y guárdala en un lugar seguro.</li>
+</ol>
+<p>Es gratis con límites que Google puede cambiar; revísalos en AI Studio. En la capa gratuita tus mensajes pueden usarse para mejorar sus modelos, así que no cuentes cosas sensibles.</p>
+<div class="note">La llave es como tu tarjeta de crédito. No la publiques ni la pongas en una página que otros puedan abrir.</div>
+</div>
+</details>
+
+<details data-s="3">
+<summary><span class="n">3</span><h2>Dale personalidad (system prompt)</h2><label class="done"><input type="checkbox" aria-label="Paso 3 listo">listo</label></summary>
+<div class="body">
+<p>El <b>system prompt</b> es un texto fijo que le dice a Claude quién es. Ahí defines nombre, tono, humor y formalidad. Para voz, siempre pide respuestas cortas.</p>
+<p>Ejemplo base:</p>
+<p><code>Eres Atlas, mi asistente personal. Hablas en español mexicano, directo y eficiente, con humor seco. Respondes en máximo 2 frases porque tus respuestas se leen en voz alta. Sin listas ni símbolos.</code></p>
+<p>Cambia el nombre por uno propio. Si algún día lo publicas, revisa las normas de marca de Anthropic.</p>
+</div>
+</details>
+
+<details data-s="4">
+<summary><span class="n">4</span><h2>Elige la cara del personaje</h2><label class="done"><input type="checkbox" aria-label="Paso 4 listo">listo</label></summary>
+<div class="body">
+<ol>
+<li>Escoge <b>un solo personaje</b> (el hombre con lentes o la mujer del chongo).</li>
+<li>Genera una imagen base y úsala siempre como referencia en tu generador.</li>
+<li>Crea 3 variantes de esa misma cara: <b>escuchando</b>, <b>pensando</b>, <b>hablando</b>.</li>
+<li>En la app, cambia la imagen según el estado. Es un truco simple y se siente vivo.</li>
+</ol>
+</div>
+</details>
+
+<details data-s="5">
+<summary><span class="n">5</span><h2>Pruébalo aquí mismo</h2><label class="done"><input type="checkbox" aria-label="Paso 5 listo">listo</label></summary>
+<div class="body">
+<p>Este mini JARVIS usa el micrófono y la voz de tu navegador (gratis) y llama a la IA que elijas con tu llave.</p>
+<div class="note">Tu llave se guarda solo en este dispositivo. Para probar está bien; para una app real, la llave debe vivir en un servidor (paso 7). El micrófono suele funcionar solo si la página se abre desde <b>https</b> o localhost, y mejor en Chrome o Safari.</div>
+<label for="prov">IA que usará</label>
+<select id="prov"><option value="gemini">Gemini (gratis)</option><option value="claude">Claude (de pago)</option></select>
+<label for="key" id="keyl">Tu llave de Gemini (AIza...)</label>
+<input id="key" type="password" autocomplete="off">
+<label for="mod">Modelo</label>
+<input id="mod" type="text" value="gemini-flash-latest">
+<p style="font-size:.85rem;color:var(--mut)">Si sale error de modelo, cambia este nombre por uno vigente de la lista de tu proveedor.</p>
+<label for="sys">Personalidad</label>
+<textarea id="sys">Eres Atlas, mi asistente personal. Hablas en español mexicano, directo y eficiente, con humor seco. Respondes en máximo 2 frases porque tus respuestas se leen en voz alta. Sin listas ni símbolos.</textarea>
+<div class="row"><button id="mic" type="button">Mantener para hablar: toca y habla</button></div>
+<label for="txt">O escribe</label>
+<input id="txt" type="text" placeholder="¿Qué hora es en Tokio?">
+<div class="row"><button id="send" type="button">Enviar</button><button id="stop" class="sec" type="button">Callar voz</button><button id="clr" class="sec" type="button">Borrar charla</button></div>
+<div id="st" role="status" aria-live="polite"></div>
+<div id="log"></div>
+</div>
+</details>
+
+<details data-s="6">
+<summary><span class="n">6</span><h2>Cambia de Gemini a Claude después</h2><label class="done"><input type="checkbox" aria-label="Paso 6 listo">listo</label></summary>
+<div class="body">
+<p>Cuando quieras pasarte a Claude, la personalidad, la voz y la cara se quedan igual. Solo cambia el cerebro:</p>
+<ol>
+<li>Entra a <b>console.anthropic.com</b>, crea cuenta y agrega saldo (a veces hay un crédito de bienvenida pequeño).</li>
+<li>En <b>API Keys</b> crea una llave. Empieza con <code>sk-ant-</code>.</li>
+<li>En el paso 5 cambia “IA que usará” a <b>Claude</b>, pega esa llave y deja el modelo <code>claude-sonnet-5-5</code> (o uno vigente de la documentación de Anthropic).</li>
+<li>Prueba con la misma personalidad. Listo.</li>
+</ol>
+<p>Si ya armaste tu propio servidor (paso 8), cambia solo la función que llama a la IA. Las diferencias son pocas:</p>
+<ul>
+<li><b>Dirección:</b> Gemini usa <code>generativelanguage.googleapis.com</code>; Claude usa <code>api.anthropic.com/v1/messages</code>.</li>
+<li><b>Llave:</b> Gemini la pide en <code>x-goog-api-key</code>; Claude en <code>x-api-key</code>.</li>
+<li><b>Personalidad:</b> en Gemini va en <code>systemInstruction</code>; en Claude en <code>system</code>.</li>
+<li><b>Mensajes:</b> Gemini llama <code>model</code> a la IA y usa <code>parts</code>; Claude usa <code>assistant</code> y <code>content</code>.</li>
+</ul>
+<div class="note">Truco: desde el inicio guarda toda la llamada a la IA en una sola función. Así el día del cambio tocas un solo lugar.</div>
+</div>
+</details>
+
+<details data-s="7">
+<summary><span class="n">7</span><h2>Mejora la voz y los oídos</h2><label class="done"><input type="checkbox" aria-label="Paso 6 listo">listo</label></summary>
+<div class="body">
+<p>La voz del navegador es robótica. Cuando quieras algo más natural:</p>
+<ul>
+<li><b>Oídos:</b> Whisper o Deepgram (mejor con acentos y ruido).</li>
+<li><b>Boca:</b> ElevenLabs (muy natural, de paga) o Piper (gratis, corre local).</li>
+<li><b>Palabra de activación:</b> Porcupine u openWakeWord, para decir “Atlas” sin tocar nada.</li>
+<li><b>Streaming:</b> pide a Claude que responda por partes y empieza a hablar con la primera frase.</li>
+</ul>
+</div>
+</details>
+
+<details data-s="7">
+<summary><span class="n">8</span><h2>Hazlo en serio: servidor y app</h2><label class="done"><input type="checkbox" aria-label="Paso 7 listo">listo</label></summary>
+<div class="body">
+<ol>
+<li>Crea un pequeño <b>servidor</b> (Node o Python) que guarde tu llave y hable con Claude.</li>
+<li>Tu página o app en el celular le habla a ese servidor, nunca directo a Claude.</li>
+<li>Publica la página en un sitio con https (Netlify, Vercel o GitHub Pages) para que el micrófono funcione siempre.</li>
+<li>Agrega memoria: guarda los últimos mensajes y reenvíalos en cada petición.</li>
+</ol>
+<p>Cuando llegues aquí, dime en qué lenguaje quieres el servidor y lo armamos juntos.</p>
+</div>
+</details>
+</main>
+
+<script>
+(function(){
+var $=function(i){return document.getElementById(i)};
+var details=[].slice.call(document.querySelectorAll('details'));
+function store(k,v){try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v)}catch(e){return null}}
+/* progreso */
+function upd(){var c=document.querySelectorAll('.done input:checked').length;$('bar').style.width=(c/details.length*100)+'%';
+store('jv_done',JSON.stringify(details.map(function(d){return d.querySelector('.done input').checked})))}
+try{var sd=JSON.parse(store('jv_done')||'[]');details.forEach(function(d,i){d.querySelector('.done input').checked=!!sd[i]})}catch(e){}
+details.forEach(function(d){var cb=d.querySelector('.done input');
+cb.addEventListener('click',function(e){e.stopPropagation()});
+cb.addEventListener('change',function(){upd();if(cb.checked){var nx=d.nextElementSibling;d.open=false;if(nx&&nx.tagName==='DETAILS'){nx.open=true;nx.scrollIntoView({behavior:'smooth',block:'start'})}}});
+});
+upd();
+/* ajustes por proveedor */
+var P={gemini:{model:'gemini-flash-latest',lab:'Tu llave de Gemini (AIza...)'},claude:{model:'claude-sonnet-5-5',lab:'Tu llave de Claude (sk-ant-...)'}};
+var cur=store('jv_prov')||'gemini';if(!P[cur])cur='gemini';$('prov').value=cur;
+function load(){$('keyl').textContent=P[cur].lab;$('key').value=store('jv_key_'+cur)||'';$('mod').value=store('jv_mod_'+cur)||P[cur].model}
+function save(){store('jv_key_'+cur,$('key').value.trim());store('jv_mod_'+cur,$('mod').value.trim())}
+load();
+var sv=store('jv_sys');if(sv)$('sys').value=sv;
+$('sys').addEventListener('change',function(){store('jv_sys',$('sys').value)});
+$('key').addEventListener('change',save);$('mod').addEventListener('change',save);
+$('prov').addEventListener('change',function(){save();cur=$('prov').value;store('jv_prov',cur);load();hist=[];$('log').innerHTML='';$('st').textContent='Cambiaste a '+(cur==='claude'?'Claude':'Gemini')+'. Charla reiniciada.'});
+/* chat */
+var hist=[];
+function add(c,t){var d=document.createElement('div');d.className='m '+c;d.textContent=t;$('log').appendChild(d);d.scrollIntoView({block:'nearest'})}
+function say(t){if(!('speechSynthesis' in window))return;speechSynthesis.cancel();var u=new SpeechSynthesisUtterance(t);u.lang='es-MX';u.onend=function(){$('st').textContent=''};speechSynthesis.speak(u)}
+async function callAI(k,m,sys){
+if(cur==='claude'){
+var r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'content-type':'application/json','x-api-key':k,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:m,max_tokens:300,system:sys,messages:hist})});
+var d=await r.json();
+if(!r.ok)throw new Error((d.error&&d.error.message)||r.status);
+return d.content.map(function(b){return b.type==='text'?b.text:''}).join('').trim();
+}
+var r2=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(m)+':generateContent',{method:'POST',headers:{'content-type':'application/json','x-goog-api-key':k},
+body:JSON.stringify({systemInstruction:{parts:[{text:sys}]},contents:hist.map(function(h){return{role:h.role==='assistant'?'model':'user',parts:[{text:h.content}]}}),generationConfig:{maxOutputTokens:300}})});
+var d2=await r2.json();
+if(!r2.ok)throw new Error((d2.error&&d2.error.message)||r2.status);
+var c=d2.candidates&&d2.candidates[0];
+return ((c&&c.content&&c.content.parts)||[]).map(function(p){return p.text||''}).join('').trim()||'(sin respuesta)';
+}
+async function ask(text){
+text=(text||'').trim();if(!text)return;
+var k=$('key').value.trim();
+if(!k){$('st').textContent='Falta tu llave en el campo de arriba.';return}
+save();
+add('u',text);hist.push({role:'user',content:text});
+$('st').textContent='Pensando...';
+try{
+var out=await callAI(k,$('mod').value.trim(),$('sys').value);
+hist.push({role:'assistant',content:out});add('a',out);$('st').textContent='Hablando...';say(out);
+}catch(e){hist.pop();$('st').textContent='Error: '+(e.message||'no se pudo conectar')}
+}
+$('send').addEventListener('click',function(){var t=$('txt').value;$('txt').value='';ask(t)});
+$('txt').addEventListener('keydown',function(e){if(e.key==='Enter'){$('send').click()}});
+$('stop').addEventListener('click',function(){if('speechSynthesis' in window)speechSynthesis.cancel();$('st').textContent=''});
+$('clr').addEventListener('click',function(){hist=[];$('log').innerHTML='';$('st').textContent=''});
+/* micrófono */
+var SR=window.SpeechRecognition||window.webkitSpeechRecognition,rec=null,on=false;
+if(!SR){$('mic').disabled=true;$('mic').textContent='Tu navegador no tiene reconocimiento de voz: escribe abajo'}
+else{$('mic').addEventListener('click',function(){
+if(on){rec.stop();return}
+if('speechSynthesis' in window)speechSynthesis.cancel();
+rec=new SR();rec.lang='es-MX';rec.interimResults=false;
+rec.onstart=function(){on=true;$('mic').classList.add('on');$('mic').textContent='Escuchando... toca para parar';$('st').textContent=''};
+rec.onresult=function(e){ask(e.results[0][0].transcript)};
+rec.onerror=function(e){$('st').textContent='Micrófono: '+e.error+(e.error==='not-allowed'?' (permite el micrófono o abre la página desde https)':'')};
+rec.onend=function(){on=false;$('mic').classList.remove('on');$('mic').textContent='Toca y habla'};
+try{rec.start()}catch(e){}
+});$('mic').textContent='Toca y habla'}
+})();
+</script>
+</body>
+</html>
