@@ -170,6 +170,8 @@ code{background:var(--code);padding:1px 6px;border-radius:5px;font-size:.88em}
 <label for="pal">Colores de los archivos</label>
 <select id="pal"><option value="auto">Que Mitca elija según el tema</option><option value="oceano">Océano (azul)</option><option value="bosque">Bosque (verde)</option><option value="atardecer">Atardecer (naranja)</option><option value="vino">Vino (guinda)</option><option value="grafito">Grafito (gris)</option><option value="lavanda">Lavanda (morado)</option></select>
 <p class="hint">Pídele “hazme un Excel con mi presupuesto” o “redacta una carta en Word” y aparece un botón para descargarlo. Sirve para documentos sencillos; los largos gastan más créditos de la IA.</p>
+<label class="chk"><input type="checkbox" id="fcl">Usar Claude para crear archivos</label>
+<p class="hint">Claude arma documentos más largos y ordenados. Necesita que hayas guardado antes tu llave de Claude (elígelo arriba una vez). Para platicar sigues con tu IA de siempre.</p>
 <h3>Respaldo</h3>
 <p class="hint">Guarda tus recuerdos y ajustes en un archivo para no perderlos si cambias de celular o borras los datos del navegador.</p>
 <label class="chk"><input type="checkbox" id="bkk">Incluir mis llaves (el archivo será sensible)</label>
@@ -292,8 +294,8 @@ for(;;){var x=await rd.read();if(x.done)break;b+=dec.decode(x.value,{stream:true
 if(b)line(b)}
 function bodyC(m,sys){var w=$('web').checked,b={model:m,max_tokens:MT,stream:true,system:sys,messages:hist};if(w)b.tools=[{type:'web_search_20250305',name:'web_search',max_uses:2}];return b}
 function bodyG(sys){var w=$('web').checked,b={systemInstruction:{parts:[{text:sys}]},contents:hist.map(function(h){return{role:h.role==='assistant'?'model':'user',parts:[{text:h.content}]}}),generationConfig:{maxOutputTokens:MT}};if(w)b.tools=[{google_search:{}}];return b}
-async function callAI(k,m,sys,onT,sig){
-if(cur==='claude'){
+async function callAI(k,m,sys,onT,sig,pv){pv=pv||cur;
+if(pv==='claude'){
 var r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',signal:sig,headers:{'content-type':'application/json','x-api-key':k,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify(bodyC(m,sys))});
 if(!r.ok){var d=await r.json().catch(function(){return{}});throw new Error((d.error&&d.error.message)||r.status)}
 await sse(r,function(o){if(o.type==='error')throw new Error((o.error&&o.error.message)||'error');if(o.type==='content_block_delta'&&o.delta&&o.delta.type==='text_delta')onT(o.delta.text)});
@@ -309,7 +311,7 @@ var it=localIntent(text);
 if(it){add('u',text);hist.push({role:'user',content:text});var bb=add('a',it.reply);
 if(it.link){bb.appendChild(document.createElement('br'));var al=document.createElement('a');al.className='lnk';al.href=it.link.url;al.target='_blank';al.rel='noopener';al.textContent=it.link.lab;bb.appendChild(al)}
 hist.push({role:'assistant',content:it.reply});say(it.reply);return}
-var k=$('key').value.trim();
+var fm0=FILERE.test(text),pv=cur,k=$('key').value.trim(),md=$('mod').value.trim();if(fm0&&$('fcl').checked&&store('jv_key_claude')&&cur!=='claude'){pv='claude';k=store('jv_key_claude');md=store('jv_mod_claude')||P.claude.model}
 if(!k){setConv(false);setS('idle');msg('Falta tu llave: pégala en Configuración.');openCfg();return}
 save();msg('');
 add('u',text);hist.push({role:'user',content:text});
@@ -320,11 +322,11 @@ if(!el){el=document.createElement('div');el.className='m a';$('log').appendChild
 el.textContent=v;$('log').scrollTop=$('log').scrollHeight;
 var m;while((m=buf.match(/^([\s\S]*?(?:[.!?…]+["”’)]*\s|\n))/))){buf=buf.slice(m[0].length);pend+=m[1];if(pend.trim().length>=25){part(run,pend);pend=''}}}
 try{
-await callAI(k,$('mod').value.trim(),$('sys').value+nowText()+memText()+(fm?FILEP:''),feed,ctl.signal);
+await callAI(k,md,$('sys').value+nowText()+memText()+(fm?FILEP:''),feed,ctl.signal,pv);
 if(!full)feed('(sin respuesta)');
 var fx=full.match(/<archivo>([\s\S]*)$/),vf=vis(full).trim(),fname=null;
 part(run,pend+buf);fin(run);
-if(fx)fname=makeFile(fx[1],el);
+if(fx){fname=makeFile(fx[1],el,true);if(!fname){msg('Corrigiendo el archivo...');fname=await repair(k,md,pv,$('sys').value+nowText()+memText()+FILEP,vf,el);msg('')}}
 hist.push({role:'assistant',content:(vf+(fx?' [Creé el archivo '+(fname||'sin éxito')+']':''))||'ok'});
 }catch(e){
 if(vis(full).trim()){hist.push({role:'assistant',content:vis(full).trim()})}else{hist.pop();if(el)el.remove()}
@@ -495,19 +497,29 @@ files.unshift(
 return zipStore(files,M+'sheet')}
 function mkCsv(filas){var t='\ufeff'+filas.slice(0,5000).map(function(r){return(r||[]).slice(0,50).map(function(v){v=v==null?'':String(v);return/[",\n\r;]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}).join(',')}).join('\r\n');return new Blob([t],{type:'text/csv;charset=utf-8'})}
 function buildFile(j){var t=fold(String(j.tipo||j.type||'')),nm=fold(String(j.nombre||j.name||'archivo')).replace(/[^a-z0-9_-]+/g,'-').replace(/^-+|-+$/g,'').slice(0,40)||'archivo',pl=pal(j.paleta||j.palette);
-if(t==='docx'||t==='word')return{blob:mkDocx(j.bloques||j.blocks||[],pl),name:nm+'.docx'};
-if(t==='xlsx'||t==='excel')return{blob:mkXlsx(j.hojas||j.sheets||[],pl),name:nm+'.xlsx'};
-if(t==='csv')return{blob:mkCsv(j.filas||j.rows||[]),name:nm+'.csv'};
+if(t==='docx'||t==='word'){var bl=j.bloques||j.blocks||[];return{blob:mkDocx(bl,pl),name:nm+'.docx',info:'Word · '+bl.length+' bloques · '+bl.filter(function(x){return x&&x.tabla}).length+' tablas'}}
+if(t==='xlsx'||t==='excel'){var hs=j.hojas||j.sheets||[],nf=0;hs.forEach(function(h){nf+=(h.filas||h.rows||[]).length});return{blob:mkXlsx(hs,pl),name:nm+'.xlsx',info:'Excel · '+hs.length+' hoja(s) · '+nf+' filas'}}
+if(t==='csv'){var fs=j.filas||j.rows||[];return{blob:mkCsv(fs),name:nm+'.csv',info:'CSV · '+fs.length+' filas'}}
+if(t==='txt'||t==='texto'){var tx=String(j.texto||j.text||'');return{blob:new Blob(['\ufeff'+tx],{type:'text/plain;charset=utf-8'}),name:nm+'.txt',info:'Texto · '+tx.length+' caracteres'}}
 throw new Error('tipo')}
 
-var FILEP='\n\nSi el usuario te pide un documento de Word, una hoja de Excel o un CSV, responde con UNA frase corta para decir en voz alta (sin describir el contenido) y luego el archivo dentro de <archivo>...</archivo> con JSON válido, sin bloques de código ni texto extra. Escapa comillas y saltos de línea dentro del JSON.\nCampo opcional "paleta": oceano, bosque, atardecer, vino, grafito o lavanda. Elige la que combine con el tema (finanzas: oceano o grafito; salud o naturaleza: bosque; eventos: atardecer; elegante: vino; creativo: lavanda).\nWord: {"tipo":"docx","nombre":"nombre-corto","paleta":"oceano","bloques":[{"h":1,"t":"Título"},{"h":2,"t":"Sección"},{"p":"Texto con **negritas**"},{"li":["a","b"]},{"num":["paso 1","paso 2"]},{"nota":"Dato destacado"},{"tabla":[["Col A","Col B"],["x","1,200"]]},{"salto":1}]}\nExcel: {"tipo":"xlsx","nombre":"nombre-corto","paleta":"bosque","hojas":[{"nombre":"Presupuesto","titulo":"Presupuesto mensual","formatos":["texto","moneda","porcentaje","fecha"],"filas":[["Concepto","Monto","Avance","Fecha"],["Renta",5000,0.5,"2026-11-01"],["Total","=SUM(B3:B3)"]]}]}\nCSV: {"tipo":"csv","nombre":"nombre-corto","filas":[["a","b"],["1","2"]]}\nReglas de calidad: en Excel la primera fila es el encabezado; si pones "titulo", el título ocupa la fila 1, el encabezado la fila 2 y los datos empiezan en la fila 3, así que ajusta las fórmulas. Usa números reales (nunca "$5,000" como texto), porcentajes como fracción (0.15), fechas AAAA-MM-DD, fórmulas en inglés con = (SUM, AVERAGE, MIN, MAX, COUNT o B3*C3), la fila de totales empieza con la palabra Total, y "formatos" lleva un valor por columna (texto, entero, decimal, moneda, porcentaje o fecha). En Word abre con h:1, divide en secciones h:2, usa tablas para datos comparables y nota para lo más importante. Sé completo pero breve, sin relleno, todo en español.';
+var FILEP='\n\nSi el usuario te pide un documento de Word, una hoja de Excel o un CSV, responde con UNA frase corta para decir en voz alta (sin describir el contenido) y luego el archivo dentro de <archivo>...</archivo> con JSON válido, sin bloques de código ni texto extra. Escapa comillas y saltos de línea dentro del JSON.\nCampo opcional "paleta": oceano, bosque, atardecer, vino, grafito o lavanda. Elige la que combine con el tema (finanzas: oceano o grafito; salud o naturaleza: bosque; eventos: atardecer; elegante: vino; creativo: lavanda).\nWord: {"tipo":"docx","nombre":"nombre-corto","paleta":"oceano","bloques":[{"h":1,"t":"Título"},{"h":2,"t":"Sección"},{"p":"Texto con **negritas**"},{"li":["a","b"]},{"num":["paso 1","paso 2"]},{"nota":"Dato destacado"},{"tabla":[["Col A","Col B"],["x","1,200"]]},{"salto":1}]}\nExcel: {"tipo":"xlsx","nombre":"nombre-corto","paleta":"bosque","hojas":[{"nombre":"Presupuesto","titulo":"Presupuesto mensual","formatos":["texto","moneda","porcentaje","fecha"],"filas":[["Concepto","Monto","Avance","Fecha"],["Renta",5000,0.5,"2026-11-01"],["Total","=SUM(B3:B3)"]]}]}\nCSV: {"tipo":"csv","nombre":"nombre-corto","filas":[["a","b"],["1","2"]]}\nReglas de calidad: en Excel la primera fila es el encabezado; si pones "titulo", el título ocupa la fila 1, el encabezado la fila 2 y los datos empiezan en la fila 3, así que ajusta las fórmulas. Usa números reales (nunca "$5,000" como texto), porcentajes como fracción (0.15), fechas AAAA-MM-DD, fórmulas en inglés con = (SUM, AVERAGE, MIN, MAX, COUNT o B3*C3), la fila de totales empieza con la palabra Total, y "formatos" lleva un valor por columna (texto, entero, decimal, moneda, porcentaje o fecha). En Word abre con h:1, divide en secciones h:2, usa tablas para datos comparables y nota para lo más importante. Sé completo pero breve, sin relleno, todo en español.\nTipo extra: {"tipo":"txt","nombre":"x","texto":"..."}.\nSi faltan datos esenciales (a quién va, montos, fechas, nombres), haz UNA pregunta corta en lugar de crear el archivo; si el usuario ya los dio o te pide inventarlos, créalo.\nPlantillas: CARTA formal = h:1 asunto, p fecha y destinatario, tres párrafos (motivo, detalle, cierre) y firma. CURRÍCULUM = h:1 nombre, p contacto, h:2 Perfil, Experiencia (li con logros), Educación y Habilidades. FACTURA = h:1 Factura, p datos del cliente, tabla [Concepto, Cantidad, Precio, Importe] y fila Total. CRONOGRAMA = Excel con Tarea, Responsable, Inicio, Fin, Estado y formatos texto,texto,fecha,fecha,texto. REPORTE = Word con nota de resumen y tabla de datos.';
 var FILERE=/(word|excel|docx|xlsx|csv|documento|hoja|planilla|archivo|presupuesto|carta|informe|reporte|tabla|curr[ií]culum|cv\b|lista de)/i;
 $('pal').value=store('jv_pal')||'auto';$('pal').addEventListener('change',function(){store('jv_pal',$('pal').value)});
+$('fcl').checked=store('jv_fcl')==='1';$('fcl').addEventListener('change',function(){store('jv_fcl',$('fcl').checked?'1':'0')});
 function vis(x){var i=x.indexOf('<archivo>');if(i>=0)return x.slice(0,i);var T='<archivo>';for(var k=T.length-1;k>0;k--){if(x.slice(-k)===T.slice(0,k))return x.slice(0,-k)}return x}
-function makeFile(raw,el){try{var t=raw.replace(/<\/archivo>[\s\S]*$/,'').replace(/```(?:json)?/g,'').trim(),f=buildFile(JSON.parse(t));
-var a=document.createElement('a');a.className='lnk';a.href=URL.createObjectURL(f.blob);a.download=f.name;a.textContent='Descargar '+f.name;
-var h=el||add('a','Tu archivo está listo.');h.appendChild(document.createElement('br'));h.appendChild(a);$('log').scrollTop=$('log').scrollHeight;return f.name}
-catch(e){add('a','No pude armar el archivo: la IA no devolvió un formato válido o se cortó. Pídemelo otra vez, quizá más corto.');return null}}
+function makeFile(raw,el,quiet){try{var t=raw.replace(/<\/archivo>[\s\S]*$/,'').replace(/```(?:json)?/g,'').trim(),f=buildFile(JSON.parse(t));
+var h=el||add('a','Tu archivo está listo.');h.appendChild(document.createElement('br'));
+var inf=document.createElement('span');inf.textContent=f.info;h.appendChild(inf);h.appendChild(document.createElement('br'));
+var a=document.createElement('a');a.className='lnk';a.href=URL.createObjectURL(f.blob);a.download=f.name;a.textContent='Descargar '+f.name;h.appendChild(a);
+try{var fl=new File([f.blob],f.name,{type:f.blob.type});if(navigator.canShare&&navigator.canShare({files:[fl]})){var sb=document.createElement('button');sb.type='button';sb.className='sec';sb.style.cssText='margin:8px 0 0 8px';sb.textContent='Compartir';sb.addEventListener('click',function(){navigator.share({files:[fl],title:f.name}).catch(function(){})});h.appendChild(sb)}}catch(e2){}
+$('log').scrollTop=$('log').scrollHeight;return f.name}
+catch(e){if(!quiet)add('a','No pude armar el archivo: la IA no devolvió un formato válido o se cortó. Pídemelo otra vez, quizá más corto.');return null}}
+async function repair(k,m,pv,sys,vf,el){var out='';hist.push({role:'assistant',content:vf||'ok'});hist.push({role:'user',content:'El archivo salió con JSON inválido o cortado. Devuélvelo completo y más corto, solo con <archivo>...</archivo>.'});
+try{await callAI(k,m,sys,function(d){out+=d},null,pv)}catch(e){}
+hist.pop();hist.pop();var x=out.match(/<archivo>([\s\S]*)$/);
+if(x){var n=makeFile(x[1],el,true);if(n)return n}
+add('a','No pude armar el archivo, ni corrigiéndolo. Pídemelo otra vez, quizá más corto.');return null}
 /* activación por voz */
 $('wkw').value=store('jv_wake')||'mitca, mitka';$('wkw').addEventListener('change',function(){store('jv_wake',$('wkw').value)});
 function wwords(){return (store('jv_wake')||'mitca, mitka').split(',').map(function(x){return fold(x.trim())}).filter(Boolean)}
