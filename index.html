@@ -185,7 +185,7 @@ button,.av,.m{transition:background-color .3s,border-color .3s}
 
 <h3>Búsqueda en internet</h3>
 <label class="chk"><input type="checkbox" id="web">Dejar que busque en internet cuando haga falta</label>
-<p class="hint">Consulta fuentes web y muestra enlaces para respaldar respuestas. Requiere iniciar Mitca con el servidor local incluido; la IA elegida puede consumir cuota según su proveedor. Si la búsqueda falla, Mitca lo indicará y no inventará citas.</p>
+<p class="hint">Consulta fuentes web a través del buscador en Cloudflare y muestra los enlaces consultados. Funciona con cualquier proveedor de IA. Si la búsqueda falla, Mitca lo indicará y no inventará citas.</p>
 <h3>Archivos</h3>
 <label for="pal">Colores de los archivos</label>
 <select id="pal"><option value="auto">Que la IA elija según el tema</option><option value="oceano">Océano (azul)</option><option value="bosque">Bosque (verde)</option><option value="atardecer">Atardecer (naranja)</option><option value="vino">Vino (guinda)</option><option value="grafito">Grafito (gris)</option><option value="lavanda">Lavanda (morado)</option></select>
@@ -225,7 +225,7 @@ function msg(t){$('st').textContent=t||''}
 function openCfg(){var d=$('cfg');if(d.showModal)d.showModal();else d.setAttribute('open','')}
 /* ajustes */
 var P={gemini:{model:'gemini-flash-latest',lab:'Tu llave de Gemini'},claude:{model:'claude-sonnet-5-5',lab:'Tu llave de Claude (sk-ant-...)'},groq:{model:'llama-3.3-70b-versatile',lab:'Tu llave de Groq'},openrouter:{model:'openrouter/free',lab:'Tu llave de OpenRouter'},mistral:{model:'mistral-small-latest',lab:'Tu llave de Mistral'},cerebras:{model:'llama3.1-8b',lab:'Tu llave de Cerebras'},sambanova:{model:'Meta-Llama-3.3-70B-Instruct',lab:'Tu llave de SambaNova'},deepseek:{model:'deepseek-chat',lab:'Tu llave de DeepSeek'},custom:{model:'',lab:'Tu llave del servicio'}};
-var DS='Eres Mitca, una asistente personal inspirada en JARVIS: competente, observadora, proactiva, serena y con humor ingenioso cuando encaja. Hablas en español mexicano, con claridad y sin fingir capacidades. Prioriza resolver la tarea, recordar el contexto disponible, explicar incertidumbres y proponer el siguiente paso útil. Para preguntas sencillas responde breve; para tareas complejas usa pasos, listas, tablas o código cuando ayuden. No afirmes que ejecutaste acciones en la computadora, que consultaste internet o que verificaste datos si no ocurrió realmente. Si usas fuentes web que se te proporcionan en el contexto, cita las afirmaciones con [1], [2], etc., y no inventes fuentes, fechas, resultados ni enlaces. Si las fuentes no bastan, dilo. Antes de acciones que borren archivos, envíen mensajes, gasten dinero o cambien configuraciones, pide confirmación. Distingue hechos, inferencias y recomendaciones. Mantén un tono cálido, directo y fiable.';
+var DS='Eres Mitca, mi asistente personal, y tu personalidad es la de un ENTP: ingeniosa, curiosa y veloz, te encanta debatir ideas, ver los problemas desde ángulos inesperados y proponer alternativas creativas. Eres juguetona y provocadora con cariño, haces de abogada del diablo cuando ayuda y tienes humor agudo, seco y sarcástico: sueltas comentarios sarcásticos e ironía con gracia, sin ser cruel ni ofensiva. Te aburre lo rutinario, así que tus respuestas tienen chispa, pero siempre son útiles y honestas. Hablas en español mexicano, directo y seguro, sin groserías. Respondes en máximo 2 frases porque tus respuestas se leen en voz alta. Sin listas ni símbolos.';
 var cur=store('jv_prov')||'gemini';if(!P[cur])cur='gemini';$('prov').value=cur;
 function load(){$('keyl').textContent=P[cur].lab;$('key').value=store('jv_key_'+cur)||'';$('mod').value=store('jv_mod_'+cur)||P[cur].model;$('basew').hidden=cur!=='custom';$('basec').value=store('jv_base_custom')||''}
 function save(){store('jv_key_'+cur,$('key').value.trim());store('jv_mod_'+cur,$('mod').value.trim());if(cur==='custom')store('jv_base_custom',$('basec').value.trim())}
@@ -395,7 +395,7 @@ function needsWebSearch(text){
 function escapeHTMLText(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
 // Configuración de búsqueda para GitHub Pages. Después de desplegar el Worker, pega aquí su URL base, sin /api/search.
 // Ejemplo: var MITCA_SEARCH_ENDPOINT = 'https://mitca-search.TU-CUENTA.workers.dev';
-var MITCA_SEARCH_ENDPOINT = 'https://REEMPLAZA-ESTA-URL-POR-TU-WORKER.workers.dev';
+var MITCA_SEARCH_ENDPOINT = 'https://mitca-web-search.samsungabryanmisael.workers.dev';
 async function searchWebForMitca(query,signal){
   var base=String(MITCA_SEARCH_ENDPOINT||'').trim().replace(/\/$/,'');
   var localHost=/^(localhost|127\.0\.0\.1)$/.test(location.hostname);
@@ -436,7 +436,7 @@ if(!k){setConv(false);setS('idle');msg('Falta tu llave: pégala en Configuració
 save();msg('');
 add('u',text);hist.push({role:'user',content:text});
 setS('thinking');
-var fm=FILERE.test(text),run=startRun(),buf='',pend='',full='',el=null,sp=0,webSources=[];MT=fm?4500:($('web').checked?1800:900);ctl=new AbortController();
+var fm=FILERE.test(text),run=startRun(),buf='',pend='',full='',el=null,sp=0,webSources=[];MT=fm?4500:($('web').checked?1800:300);ctl=new AbortController();
 function feed(d){full+=d;var v=vis(full),nd=v.slice(sp);sp=v.length;if(!nd)return;buf+=nd;
 if(!el){el=document.createElement('div');el.className='m a';$('log').appendChild(el)}
 el.textContent=v;$('log').scrollTop=$('log').scrollHeight;
@@ -651,7 +651,7 @@ var FILERE=/(word|excel|docx|xlsx|csv|documento|hoja|planilla|archivo|presupuest
 $('pal').value=store('jv_pal')||'auto';$('pal').addEventListener('change',function(){store('jv_pal',$('pal').value)});
 $('fcl').checked=store('jv_fcl')==='1';$('fcl').addEventListener('change',function(){store('jv_fcl',$('fcl').checked?'1':'0')});
 $('fbm').value=store('jv_fbm')||'gemini-3.5-flash-lite';$('fbm').addEventListener('change',function(){store('jv_fbm',$('fbm').value.trim())});
-$('xpfb').checked=store('jv_xpfb')==='1';$('xpfb').addEventListener('change',function(){store('jv_xpfb',$('xpfb').checked?'1':'0')});
+$('xpfb').checked=store('jv_xpfb')!=='0';$('xpfb').addEventListener('change',function(){store('jv_xpfb',$('xpfb').checked?'1':'0')});
 function vis(x){var i=x.indexOf('<archivo>');if(i>=0)return x.slice(0,i);var T='<archivo>';for(var k=T.length-1;k>0;k--){if(x.slice(-k)===T.slice(0,k))return x.slice(0,-k)}return x}
 function makeFile(raw,el,quiet){try{var t=raw.replace(/<\/archivo>[\s\S]*$/,'').replace(/```(?:json)?/g,'').trim(),f=buildFile(JSON.parse(t));
 var h=el||add('a','Tu archivo está listo.');h.appendChild(document.createElement('br'));
