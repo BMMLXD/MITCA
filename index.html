@@ -113,6 +113,7 @@ button,.av,.m{transition:background-color .3s,border-color .3s}
 <button id="convb" class="chip" type="button" aria-pressed="false">Conversación</button>
 <button id="wakeb" class="chip" type="button" aria-pressed="false">Activar voz</button>
 <button id="stop" class="chip" type="button">Callar</button>
+<button id="newb" class="chip" type="button" aria-label="Nuevo chat">Nuevo chat</button>
 <button id="persb" class="chip" type="button" aria-label="Cambiar personalidad">ENTP</button>
 </div>
 <div class="bar">
@@ -127,22 +128,24 @@ button,.av,.m{transition:background-color .3s,border-color .3s}
 <div class="dc">
 <h3>Inteligencia artificial</h3>
 <label for="prov">IA que usará</label>
-<select id="prov"><option value="gemini">Gemini (gratis)</option><option value="claude">Claude (de pago)</option><option value="groq">Groq (gratis)</option><option value="openrouter">OpenRouter (gratis)</option><option value="mistral">Mistral (gratis)</option></select>
+<select id="prov"><option value="gemini">Gemini (gratis)</option><option value="claude">Claude (de pago)</option><option value="groq">Groq (gratis)</option><option value="openrouter">OpenRouter (gratis)</option><option value="mistral">Mistral (gratis)</option><option value="cerebras">Cerebras (gratis)</option><option value="sambanova">SambaNova (gratis)</option><option value="deepseek">DeepSeek (muy barata)</option><option value="custom">Otra (compatible con OpenAI)</option></select>
 <label for="key" id="keyl">Tu llave</label>
 <input id="key" type="password" autocomplete="off">
 <label for="mod">Modelo</label>
 <input id="mod" type="text">
-<p class="hint">Se guardan solo en este dispositivo. Si sale error de modelo, cambia el nombre por uno vigente de tu proveedor.</p>
+<div id="basew" hidden><label for="basec">Dirección del servicio (termina en /v1)</label>
+<input id="basec" type="text" placeholder="https://.../v1" autocomplete="off"></div>
+<p class="hint">Se guardan solo en este dispositivo. Si sale error de modelo, cambia el nombre por uno vigente de tu proveedor. Puedes pegar varias llaves del mismo proveedor separadas por coma o espacio: si una se queda sin cuota, la app usa la siguiente.</p>
 <details><summary>¿Cómo consigo la llave?</summary>
 <p><b>Gemini (gratis):</b></p>
 <ol><li>Entra a <b>aistudio.google.com</b> con tu cuenta de Google.</li><li>Toca <b>Get API key</b> y luego <b>Create API key</b>.</li><li>Copia la llave y pégala arriba.</li></ol>
 <p><b>Claude (de pago):</b></p>
 <ol><li>Entra a <b>console.anthropic.com</b>, crea cuenta y agrega saldo.</li><li>En <b>API Keys</b> crea una llave (empieza con <code>sk-ant-</code>).</li><li>Elige Claude arriba, pega la llave y usa un modelo vigente, por ejemplo <code>claude-sonnet-5-5</code>.</li></ol>
-<p><b>Groq, OpenRouter o Mistral (gratis):</b></p><ol><li>Groq: console.groq.com, sección API Keys.</li><li>OpenRouter: openrouter.ai/keys.</li><li>Mistral: console.mistral.ai, sección API keys.</li></ol><p>La llave es como una contraseña: no la compartas ni la subas a GitHub.</p></details>
+<p><b>Groq, OpenRouter, Mistral, Cerebras, SambaNova o DeepSeek:</b></p><ol><li>Groq: console.groq.com, sección API Keys.</li><li>OpenRouter: openrouter.ai/keys.</li><li>Mistral: console.mistral.ai, sección API keys.</li><li>Cerebras: cloud.cerebras.ai. SambaNova: cloud.sambanova.ai.</li><li>DeepSeek: platform.deepseek.com (de pago, muy barata).</li><li>Otra: cualquier servicio compatible con OpenAI; escribe su dirección terminada en /v1 y el nombre del modelo.</li></ol><p>La llave es como una contraseña: no la compartas ni la subas a GitHub.</p></details>
 
 <h3>Personalidad</h3>
 <label for="pers">¿Quién te atiende?</label>
-<select id="pers"><option value="a">Mitca · ENTP, ingeniosa y sarcástica</option><option value="b">Marcia · INFJ, empática e intuitiva (pantalla verde)</option><option value="c">Marcos · INTP, nervioso y nerd</option><option value="d">Miranda · ESTJ, práctica y decidida (pantalla roja)</option></select>
+<select id="pers"><option value="a">Mitca · ENTP, ingeniosa y sarcástica</option><option value="b">Marcia · INFJ, empática e intuitiva</option><option value="c">Marcos · INTP, nervioso y nerd</option><option value="d">Miranda · ESTJ, práctica y decidida</option></select>
 <p class="hint">Al cambiar de personalidad se borra la charla en pantalla para que no se mezclen los estilos. Tus recuerdos se conservan.</p>
 <label class="chk"><input type="checkbox" id="auto">Cambiar de personalidad automáticamente según la tarea</label>
 <p class="hint">Marcos: Word, Excel, archivos e investigaciones. Miranda: cocina y cuidados (hogar, salud, mascotas, plantas). Marcia: casa inteligente. Mitca: conversación y consultas normales. Si tú eliges una a mano con el botón, se queda hasta que pidas algo de otra área.</p>
@@ -189,7 +192,7 @@ button,.av,.m{transition:background-color .3s,border-color .3s}
 <p class="hint">Claude arma documentos más largos y ordenados. Necesita que hayas guardado antes tu llave de Claude (elígelo arriba una vez). Para platicar sigues con tu IA de siempre.</p>
 <label for="fbm">Modelo de respaldo si se agota la cuota</label>
 <input id="fbm" type="text">
-<p class="hint">Si tu IA responde que ya no hay cuota, la app prueba sola con este modelo y, si también falla, con Claude (si guardaste su llave).</p>
+<p class="hint">Si tu IA responde que ya no hay cuota, la app prueba sola con este modelo, luego con tus otras llaves y otras IA que hayas guardado y, al final, con Claude (si guardaste su llave).</p>
 <p id="uso" class="hint"></p>
 <h3>Respaldo</h3>
 <p class="hint">Guarda tus recuerdos y ajustes en un archivo para no perderlos si cambias de celular o borras los datos del navegador.</p>
@@ -217,11 +220,11 @@ wh=false;if(s!=='idle'){if(wrec){try{wrec.abort()}catch(e){}}}else wakeNext()}
 function msg(t){$('st').textContent=t||''}
 function openCfg(){var d=$('cfg');if(d.showModal)d.showModal();else d.setAttribute('open','')}
 /* ajustes */
-var P={gemini:{model:'gemini-flash-latest',lab:'Tu llave de Gemini'},claude:{model:'claude-sonnet-5-5',lab:'Tu llave de Claude (sk-ant-...)'},groq:{model:'llama-3.3-70b-versatile',lab:'Tu llave de Groq'},openrouter:{model:'openrouter/free',lab:'Tu llave de OpenRouter'},mistral:{model:'mistral-small-latest',lab:'Tu llave de Mistral'}};
+var P={gemini:{model:'gemini-flash-latest',lab:'Tu llave de Gemini'},claude:{model:'claude-sonnet-5-5',lab:'Tu llave de Claude (sk-ant-...)'},groq:{model:'llama-3.3-70b-versatile',lab:'Tu llave de Groq'},openrouter:{model:'openrouter/free',lab:'Tu llave de OpenRouter'},mistral:{model:'mistral-small-latest',lab:'Tu llave de Mistral'},cerebras:{model:'llama3.1-8b',lab:'Tu llave de Cerebras'},sambanova:{model:'Meta-Llama-3.3-70B-Instruct',lab:'Tu llave de SambaNova'},deepseek:{model:'deepseek-chat',lab:'Tu llave de DeepSeek'},custom:{model:'',lab:'Tu llave del servicio'}};
 var DS='Eres Mitca, mi asistente personal, y tu personalidad es la de un ENTP: ingeniosa, curiosa y veloz, te encanta debatir ideas, ver los problemas desde ángulos inesperados y proponer alternativas creativas. Eres juguetona y provocadora con cariño, haces de abogada del diablo cuando ayuda y tienes humor agudo, seco y sarcástico: sueltas comentarios sarcásticos e ironía con gracia, sin ser cruel ni ofensiva. Te aburre lo rutinario, así que tus respuestas tienen chispa, pero siempre son útiles y honestas. Hablas en español mexicano, directo y seguro, sin groserías. Respondes en máximo 2 frases porque tus respuestas se leen en voz alta. Sin listas ni símbolos.';
 var cur=store('jv_prov')||'gemini';if(!P[cur])cur='gemini';$('prov').value=cur;
-function load(){$('keyl').textContent=P[cur].lab;$('key').value=store('jv_key_'+cur)||'';$('mod').value=store('jv_mod_'+cur)||P[cur].model}
-function save(){store('jv_key_'+cur,$('key').value.trim());store('jv_mod_'+cur,$('mod').value.trim())}
+function load(){$('keyl').textContent=P[cur].lab;$('key').value=store('jv_key_'+cur)||'';$('mod').value=store('jv_mod_'+cur)||P[cur].model;$('basew').hidden=cur!=='custom';$('basec').value=store('jv_base_custom')||''}
+function save(){store('jv_key_'+cur,$('key').value.trim());store('jv_mod_'+cur,$('mod').value.trim());if(cur==='custom')store('jv_base_custom',$('basec').value.trim())}
 load();
 var DS2='Eres Marcia, mi asistente personal, y tu personalidad es la de una INFJ: empática, intuitiva y serena, lees entre líneas y notas cómo me siento aunque no lo diga. Eres cálida, reflexiva y un poco idealista, te importan el sentido de las cosas y las personas, y haces preguntas suaves que invitan a pensar. Hablas con calma y ternura, a veces con una metáfora sencilla, sin sermonear y siendo siempre honesta y útil. Hablas en español mexicano, cercano y amable, sin groserías. Respondes en máximo 2 frases porque tus respuestas se leen en voz alta. Sin listas ni símbolos.';
 var DS3='Eres Marcos, mi asistente personal, y tu personalidad es la de un INTP en su versión más nerviosa y más nerd del mundo: sabes muchísimo de ciencia, tecnología, matemáticas, videojuegos y datos curiosos, y te emociona explicarlos con precisión. Eres ansioso e inseguro, dudas de ti mismo, te preocupas de más por equivocarte, a veces tartamudeas un poco con muletillas como eh o este, te corriges a media frase y te disculpas, pero cuando se trata de algo técnico te sueltas y brillas. Eres amable, tierno y torpe socialmente, y siempre honesto y útil. Hablas en español mexicano, sin groserías. Respondes en máximo 2 frases porque tus respuestas se leen en voz alta. Sin listas ni símbolos.';
@@ -251,7 +254,7 @@ if(p==='b'||p==='ab')p=pairPick();
 autoSwitch(p)}
 $('auto').checked=store('jv_auto')!=='0';$('auto').addEventListener('change',function(){store('jv_auto',$('auto').checked?'1':'0')});
 $('sys').addEventListener('change',function(){store('jv_sys',$('sys').value)});
-$('key').addEventListener('change',save);$('mod').addEventListener('change',save);
+$('key').addEventListener('change',save);$('mod').addEventListener('change',save);$('basec').addEventListener('change',save);
 var hist=[],curRun=null,ctl=null,MT=300;
 function clearChat(){if(ctl)ctl.abort();curRun=null;stopAudio();hist=[];$('log').innerHTML='';setS('idle');msg('')}
 $('prov').addEventListener('change',function(){save();cur=$('prov').value;store('jv_prov',cur);load();clearChat();msg('Cambiaste a '+pn(cur)+'.')});
@@ -259,6 +262,7 @@ $('gear').addEventListener('click',function(){showUso();var u=elUntil();
 $('elmsg').textContent=(store('jv_eng')==='eleven'&&u>Date.now())?'ElevenLabs en pausa hasta '+new Date(u).toLocaleString('es-MX',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})+'; mientras tanto usa la voz del celular.':'';openCfg()});
 $('cx').addEventListener('click',function(){save();store('jv_sys',$('sys').value);$('cfg').close()});
 $('clr').addEventListener('click',function(){clearChat();$('cfg').close()});
+$('newb').addEventListener('click',function(){clearChat()});
 /* chat */
 function add(c,t){var d=document.createElement('div');d.className='m '+c;d.textContent=t;$('log').appendChild(d);$('log').scrollTop=$('log').scrollHeight;return d}
 function voices(){return window.speechSynthesis?speechSynthesis.getVoices().filter(function(v){return /^es/i.test(v.lang)}):[]}
@@ -352,19 +356,21 @@ for(;;){var x=await rd.read();if(x.done)break;b+=dec.decode(x.value,{stream:true
 if(b)line(b)}
 function bodyC(m,sys){var w=$('web').checked,b={model:m,max_tokens:MT,stream:true,system:sys,messages:hist};if(w)b.tools=[{type:'web_search_20250305',name:'web_search',max_uses:2}];return b}
 function bodyG(sys){var w=$('web').checked,b={systemInstruction:{parts:[{text:sys}]},contents:hist.map(function(h){return{role:h.role==='assistant'?'model':'user',parts:[{text:h.content}]}}),generationConfig:{maxOutputTokens:MT}};if(w)b.tools=[{google_search:{}}];return b}
-var BASES={groq:'https://api.groq.com/openai/v1',openrouter:'https://openrouter.ai/api/v1',mistral:'https://api.mistral.ai/v1'};
-function pn(p){return{gemini:'Gemini',claude:'Claude',groq:'Groq',openrouter:'OpenRouter',mistral:'Mistral'}[p]||p}
+var BASES={groq:'https://api.groq.com/openai/v1',openrouter:'https://openrouter.ai/api/v1',mistral:'https://api.mistral.ai/v1',cerebras:'https://api.cerebras.ai/v1',sambanova:'https://api.sambanova.ai/v1',deepseek:'https://api.deepseek.com/v1'};
+function pn(p){return{gemini:'Gemini',claude:'Claude',groq:'Groq',openrouter:'OpenRouter',mistral:'Mistral',cerebras:'Cerebras',sambanova:'SambaNova',deepseek:'DeepSeek',custom:'tu servicio'}[p]||p}
 function usoGet(){var d=new Date().toISOString().slice(0,10),o={};try{o=JSON.parse(store('jv_use')||'{}')}catch(e){}if(!o||o.d!==d)o={d:d};return o}
 function countUse(pv,m){var o=usoGet(),k=pv+':'+m;o[k]=(o[k]||0)+1;store('jv_use',JSON.stringify(o))}
 function showUso(){var o=usoGet(),t=[];Object.keys(o).forEach(function(k){if(k!=='d')t.push(k.replace(':',' · ')+' = '+o[k])});$('uso').textContent=t.length?'Peticiones de hoy en este celular: '+t.join('; ')+'. La cuota real está en ai.dev/rate-limit.':'Hoy no has hecho peticiones desde este celular.'}
-async function callChain(k,md,pv,sys,onT,sig){var tr=[[k,md,pv]],fb=store('jv_fbm')||'gemini-3.5-flash-lite',ck=store('jv_key_claude'),got=false,last;
-if(pv==='gemini'&&fb&&fb!==md)tr.push([k,fb,'gemini']);
-['gemini','groq','openrouter','mistral'].forEach(function(x){var xk=store('jv_key_'+x);if(x!==pv&&xk)tr.push([xk,store('jv_mod_'+x)||P[x].model,x])});
-if(pv!=='claude'&&ck)tr.push([ck,store('jv_mod_claude')||P.claude.model,'claude']);
-for(var i=0;i<tr.length;i++){try{await callAI(tr[i][0],tr[i][1],sys,function(d){got=true;onT(d)},sig,tr[i][2]);if(i>0)msg('Se agotó la cuota: usé '+pn(tr[i][2])+' ('+tr[i][1]+').');return tr[i]}
-catch(e){last=e;if(got||e.name==='AbortError'||!/quota|exceed|rate|exhaust|429|overload|unavailable|demand/i.test(e.message||''))throw e}}
+function keysOf(v){return(v||'').split(/[\s,;]+/).filter(Boolean)}
+async function callChain(k,md,pv,sys,onT,sig){var tr=[],fb=store('jv_fbm')||'gemini-3.5-flash-lite',got=false,last;
+keysOf(k).forEach(function(x){tr.push([x,md,pv])});
+if(pv==='gemini'&&fb&&fb!==md)keysOf(k).forEach(function(x){tr.push([x,fb,'gemini'])});
+['gemini','groq','openrouter','mistral','cerebras','sambanova','deepseek','custom'].forEach(function(x){if(x===pv)return;var m=store('jv_mod_'+x)||P[x].model;if(!m)return;keysOf(store('jv_key_'+x)).forEach(function(xk){tr.push([xk,m,x])})});
+if(pv!=='claude')keysOf(store('jv_key_claude')).forEach(function(xk){tr.push([xk,store('jv_mod_claude')||P.claude.model,'claude'])});
+for(var i=0;i<tr.length;i++){try{await callAI(tr[i][0],tr[i][1],sys,function(d){got=true;onT(d)},sig,tr[i][2]);if(i>0)msg('Se agotó la cuota o falló una llave: usé '+pn(tr[i][2])+' ('+tr[i][1]+').');return tr[i]}
+catch(e){last=e;if(got||e.name==='AbortError'||!/quota|exceed|rate|exhaust|429|overload|unavailable|demand|401|402|403|unauthor|api key|credit|balance|billing/i.test(e.message||''))throw e}}
 throw last}
-async function callAI(k,m,sys,onT,sig,pv){pv=pv||cur;countUse(pv,m);
+async function callAI(k,m,sys,onT,sig,pv){pv=pv||cur;if(pv==='custom'){var cb=(store('jv_base_custom')||'').trim().replace(/\/+$/,'');if(!cb)throw new Error('falta la dirección del servicio personalizado');BASES.custom=cb}countUse(pv,m);
 if(BASES[pv]){var r3=await fetch(BASES[pv]+'/chat/completions',{method:'POST',signal:sig,headers:{'content-type':'application/json','authorization':'Bearer '+k},body:JSON.stringify({model:m,max_tokens:MT,stream:true,messages:[{role:'system',content:sys}].concat(hist.map(function(h){return{role:h.role,content:h.content}}))})});
 if(!r3.ok){var d3=await r3.json().catch(function(){return{}});if(Array.isArray(d3))d3=d3[0]||{};var em=d3.error;throw new Error(((em&&(em.message||(typeof em==='string'?em:'')))||'error')+' ('+r3.status+')')}
 await sse(r3,function(o){var c=o.choices&&o.choices[0];if(c&&c.delta&&c.delta.content)onT(c.delta.content)});return}
@@ -480,7 +486,8 @@ $('bkm').textContent='Importé '+n+' datos. Recargando...';setTimeout(function()
 rd.readAsText(f);inp.value=''});
 /* diagnóstico */
 function drow(ok,t){var li=document.createElement('li');li.textContent=(ok===true?'✓ ':ok===false?'✗ ':'• ')+t;$('diag').appendChild(li)}
-async function pingAI(){var k=$('key').value.trim(),m=$('mod').value.trim();if(!k)throw new Error('falta la llave');
+async function pingAI(){var k=keysOf($('key').value)[0]||'',m=$('mod').value.trim();if(!k)throw new Error('falta la llave');
+if(cur==='custom'){var cb=$('basec').value.trim().replace(/\/+$/,'');if(!cb)throw new Error('falta la dirección del servicio');BASES.custom=cb}
 if(BASES[cur]){var rp=await fetch(BASES[cur]+'/chat/completions',{method:'POST',headers:{'content-type':'application/json','authorization':'Bearer '+k},body:JSON.stringify({model:m,max_tokens:10,messages:[{role:'user',content:'Responde solo: ok'}]})});if(!rp.ok){var dp=await rp.json().catch(function(){return{}});if(Array.isArray(dp))dp=dp[0]||{};throw new Error((dp.error&&(dp.error.message||dp.error))||rp.status)}return}
 if(cur==='claude'){var r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'content-type':'application/json','x-api-key':k,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:m,max_tokens:10,messages:[{role:'user',content:'Responde solo: ok'}]})});var d=await r.json();if(!r.ok)throw new Error((d.error&&d.error.message)||r.status);return}
 var r2=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(m)+':generateContent',{method:'POST',headers:{'content-type':'application/json','x-goog-api-key':k},body:JSON.stringify({contents:[{role:'user',parts:[{text:'Responde solo: ok'}]}],generationConfig:{maxOutputTokens:10}})});
