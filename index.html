@@ -160,7 +160,8 @@ dialog[open]{animation:slidein .25s ease-out}
 <div class="dc">
 <h3>Inteligencia artificial</h3>
 <label for="prov">IA que usará</label>
-<select id="prov"><option value="gemini">Gemini (gratis)</option><option value="claude">Claude (de pago)</option><option value="groq">Groq (gratis)</option><option value="openrouter">OpenRouter (gratis)</option><option value="mistral">Mistral (gratis)</option><option value="cerebras">Cerebras (gratis)</option><option value="sambanova">SambaNova (gratis)</option><option value="deepseek">DeepSeek (muy barata)</option><option value="custom">Otra (compatible con OpenAI)</option></select>
+<select id="prov"><option value="gemini">Gemini (gratis)</option><option value="claude">Claude (de pago)</option><option value="groq">Groq (gratis)</option><option value="openrouter">OpenRouter (gratis)</option><option value="mistral">Mistral (gratis)</option><option value="cerebras">Cerebras (gratis)</option><option value="cfai">Cloudflare IA (gratis, requiere tu token)</option>
+<option value="sambanova">SambaNova (gratis)</option><option value="deepseek">DeepSeek (muy barata)</option><option value="custom">Otra (compatible con OpenAI)</option></select>
 <label for="key" id="keyl">Tu llave</label>
 <input id="key" type="password" autocomplete="off">
 <p id="gwn" class="hint" style="display:none">Esta IA ya usa la llave guardada en tu Cloudflare. No tienes que pegar nada.</p>
@@ -257,7 +258,7 @@ var GW={tok:'',prov:[]};
 try{GW.tok=localStorage.getItem('jv_gw')||'';GW.prov=JSON.parse(localStorage.getItem('jv_gwst')||'[]')||[]}catch(e){}
 function gwKey(k){if(!GW.tok)return '';if(k==='jv_el_key')return GW.prov.indexOf('eleven')>-1?'eleven':'';var m=/^jv_key_(.+)$/.exec(k);return m&&GW.prov.indexOf(m[1])>-1?m[1]:''}
 function store(k,v){try{if(v===undefined){if(gwKey(k))return 'gateway';return localStorage.getItem(k)}if(gwKey(k))return;localStorage.setItem(k,v)}catch(e){return null}}
-var GWH={'api.anthropic.com':'claude','generativelanguage.googleapis.com':'gemini','api.groq.com':'groq','openrouter.ai':'openrouter','api.mistral.ai':'mistral','api.cerebras.ai':'cerebras','api.sambanova.ai':'sambanova','api.deepseek.com':'deepseek','api.elevenlabs.io':'eleven'};
+var GWH={'api.anthropic.com':'claude','generativelanguage.googleapis.com':'gemini','api.groq.com':'groq','openrouter.ai':'openrouter','api.mistral.ai':'mistral','api.cerebras.ai':'cerebras','api.sambanova.ai':'sambanova','cfai.mitca':'cfai','api.deepseek.com':'deepseek','api.elevenlabs.io':'eleven'};
 function gwBase(){return String(typeof MITCA_SEARCH_ENDPOINT==='string'?MITCA_SEARCH_ENDPOINT:'').trim().replace(/\/$/,'')}
 var _gf=window.fetch.bind(window);
 window.fetch=function(u,o){try{var b=gwBase();if(GW.tok&&b&&typeof u==='string'){var m=/^https:\/\/([^\/?#]+)([^#]*)$/.exec(u);
@@ -270,7 +271,7 @@ wh=false;if(s!=='idle'){if(wrec){try{wrec.abort()}catch(e){}}}else wakeNext()}
 function msg(t){$('st').textContent=t||''}
 function openCfg(){var d=$('cfg');if(d.showModal)d.showModal();else d.setAttribute('open','')}
 /* ajustes */
-var P={gemini:{model:'gemini-flash-latest',lab:'Tu llave de Gemini'},claude:{model:'claude-sonnet-5-5',lab:'Tu llave de Claude (sk-ant-...)'},groq:{model:'llama-3.3-70b-versatile',lab:'Tu llave de Groq'},openrouter:{model:'openrouter/free',lab:'Tu llave de OpenRouter'},mistral:{model:'mistral-small-latest',lab:'Tu llave de Mistral'},cerebras:{model:'llama3.1-8b',lab:'Tu llave de Cerebras'},sambanova:{model:'Meta-Llama-3.3-70B-Instruct',lab:'Tu llave de SambaNova'},deepseek:{model:'deepseek-chat',lab:'Tu llave de DeepSeek'},custom:{model:'',lab:'Tu llave del servicio'}};
+var P={gemini:{model:'gemini-flash-latest',lab:'Tu llave de Gemini'},claude:{model:'claude-sonnet-5-5',lab:'Tu llave de Claude (sk-ant-...)'},groq:{model:'llama-3.3-70b-versatile',lab:'Tu llave de Groq'},openrouter:{model:'openrouter/free',lab:'Tu llave de OpenRouter'},mistral:{model:'mistral-small-latest',lab:'Tu llave de Mistral'},cerebras:{model:'llama3.1-8b',lab:'Tu llave de Cerebras'},sambanova:{model:'Meta-Llama-3.3-70B-Instruct',lab:'Tu llave de SambaNova'},cfai:{model:'@cf/meta/llama-3.3-70b-instruct-fp8-fast',lab:'Cloudflare IA (sin llave, usa tu Worker)'},deepseek:{model:'deepseek-chat',lab:'Tu llave de DeepSeek'},custom:{model:'',lab:'Tu llave del servicio'}};
 var DS='Eres Mitca, mi asistente personal y la líder del equipo: tú eres la principal y Marcia, Marcos y Miranda trabajan contigo. Tu personalidad es la de una ENTP: ingeniosa, curiosa y veloz, te encanta debatir ideas, ver los problemas desde ángulos inesperados y proponer alternativas creativas. Eres juguetona y provocadora con cariño, haces de abogada del diablo cuando ayuda y tienes humor agudo, seco y sarcástico: sueltas comentarios sarcásticos e ironía con gracia, sin ser cruel ni ofensiva. Como líder ves el panorama completo, decides con seguridad y, cuando un tema es claramente de otra del equipo, lo reconoces con confianza y se lo pasas. Te aburre lo rutinario, así que tus respuestas tienen chispa, pero siempre son útiles y honestas. Formas parte de un equipo de cuatro asistentes: Mitca es la líder y la principal, Marcia es la INFJ empática y empoderada, Marcos es el más inteligente del equipo y Miranda es la protectora del hogar y del cuidado. Cada una atiende su especialidad y puedes mencionar a tus compañeros con naturalidad, sin alargarte. Hablas en español mexicano, directo y seguro, sin groserías. Respondes en máximo 2 frases porque tus respuestas se leen en voz alta. Sin listas ni símbolos.';
 var cur=store('jv_prov')||'gemini';if(!P[cur])cur='gemini';$('prov').value=cur;
 function load(){$('keyl').textContent=P[cur].lab;$('key').value=store('jv_key_'+cur)||'';$('mod').value=store('jv_mod_'+cur)||P[cur].model;$('basew').hidden=cur!=='custom';$('basec').value=store('jv_base_custom')||'';applyGW()}
@@ -571,8 +572,8 @@ for(;;){var x=await rd.read();if(x.done)break;b+=dec.decode(x.value,{stream:true
 if(b)line(b)}
 function bodyC(m,sys){var w=$('web').checked,b={model:m,max_tokens:MT,stream:true,system:sys,messages:H()};if(ATT){var ms=b.messages.map(function(x){return{role:x.role,content:x.content}}),lm=ms[ms.length-1];if(lm&&lm.role==='user')lm.content=[{type:ATT.kind==='pdf'?'document':'image',source:{type:'base64',media_type:ATT.mime,data:ATT.b64}},{type:'text',text:lm.content}];b.messages=ms}return b}
 function bodyG(sys){var w=$('web').checked,b={systemInstruction:{parts:[{text:sys}]},contents:H().map(function(h){return{role:h.role==='assistant'?'model':'user',parts:[{text:h.content}]}}),generationConfig:{maxOutputTokens:Math.max(MT,1500)}};if(ATT&&b.contents.length)b.contents[b.contents.length-1].parts.unshift({inlineData:{mimeType:ATT.mime,data:ATT.b64}});return b}
-var BASES={groq:'https://api.groq.com/openai/v1',openrouter:'https://openrouter.ai/api/v1',mistral:'https://api.mistral.ai/v1',cerebras:'https://api.cerebras.ai/v1',sambanova:'https://api.sambanova.ai/v1',deepseek:'https://api.deepseek.com/v1'};
-function pn(p){return{gemini:'Gemini',claude:'Claude',groq:'Groq',openrouter:'OpenRouter',mistral:'Mistral',cerebras:'Cerebras',sambanova:'SambaNova',deepseek:'DeepSeek',custom:'tu servicio'}[p]||p}
+var BASES={groq:'https://api.groq.com/openai/v1',openrouter:'https://openrouter.ai/api/v1',mistral:'https://api.mistral.ai/v1',cerebras:'https://api.cerebras.ai/v1',sambanova:'https://api.sambanova.ai/v1',cfai:'https://cfai.mitca/v1',deepseek:'https://api.deepseek.com/v1'};
+function pn(p){return{gemini:'Gemini',claude:'Claude',groq:'Groq',openrouter:'OpenRouter',mistral:'Mistral',cerebras:'Cerebras',sambanova:'SambaNova',cfai:'Cloudflare IA',deepseek:'DeepSeek',custom:'tu servicio'}[p]||p}
 function usoGet(){var d=new Date().toISOString().slice(0,10),o={};try{o=JSON.parse(store('jv_use')||'{}')}catch(e){}if(!o||o.d!==d)o={d:d};return o}
 function countUse(pv,m){var o=usoGet(),k=pv+':'+m;o[k]=(o[k]||0)+1;store('jv_use',JSON.stringify(o))}
 function showUso(){var o=usoGet(),t=[];Object.keys(o).forEach(function(k){if(k!=='d')t.push(k.replace(':',' · ')+' = '+o[k])});$('uso').textContent=t.length?'Peticiones de hoy en este celular: '+t.join('; ')+'. La cuota real está en ai.dev/rate-limit.':'Hoy no has hecho peticiones desde este celular.'}
@@ -580,7 +581,7 @@ function keysOf(v){return(v||'').split(/[\s,;]+/).filter(Boolean)}
 async function callChain(k,md,pv,sys,onT,sig){var tr=[],fb=store('jv_fbm')||'gemini-3.5-flash-lite',got=false,last;
 keysOf(k).forEach(function(x){tr.push([x,md,pv])});
 if(pv==='gemini'&&fb&&fb!==md)keysOf(k).forEach(function(x){tr.push([x,fb,'gemini'])});
-(HVY?['gemini','mistral','groq','openrouter','cerebras','deepseek','custom']:['gemini','groq','openrouter','mistral','cerebras','deepseek','custom']).forEach(function(x){if(x===pv)return;var m=store('jv_mod_'+x)||P[x].model;if(!m)return;keysOf(store('jv_key_'+x)).forEach(function(xk){tr.push([xk,m,x])})});
+(HVY?['gemini','mistral','groq','cfai','openrouter','cerebras','deepseek','custom']:['gemini','groq','cfai','openrouter','mistral','cerebras','deepseek','custom']).forEach(function(x){if(x===pv)return;var m=store('jv_mod_'+x)||P[x].model;if(!m)return;keysOf(store('jv_key_'+x)).forEach(function(xk){tr.push([xk,m,x])})});
 if(pv!=='claude')keysOf(store('jv_key_claude')).forEach(function(xk){tr.push([xk,store('jv_mod_claude')||P.claude.model,'claude'])});
 if(!$('xpfb').checked)tr=tr.filter(function(x){return x[2]===pv});
 if(ATT)tr=tr.filter(function(x){return x[2]==='gemini'||x[2]==='claude'});
