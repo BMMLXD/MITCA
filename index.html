@@ -87,7 +87,7 @@ body.p3 header,body.p3 .stage,body.p3 #log,body.p3 .dock,body.p3 .drawer{--acc:#
 @media (prefers-color-scheme:dark){body.p3 header,body.p3 .stage,body.p3 #log,body.p3 .dock,body.p3 .drawer{--acc:#fb923c;--accbg:#3b2210;--onacc:#2a1204}}
 button,.av,.m{transition:background-color .3s,border-color .3s}
 
-.sources{margin-top:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card);font-size:13px;line-height:1.45}.sources strong{display:block;margin-bottom:5px}.sources a{display:block;color:var(--acc);overflow-wrap:anywhere;margin:4px 0}.sources summary{cursor:pointer;font-weight:600}.sources[open] summary{margin-bottom:6px}.sources .source-snippet{color:var(--mut);font-size:12px}
+.sources{margin-top:8px;padding:0 12px;border:1px solid var(--line);border-radius:10px;background:var(--card);font-size:13px;line-height:1.45}.sources strong{display:block;margin-bottom:5px}.sources a{display:block;color:var(--acc);overflow-wrap:anywhere;margin:4px 0}.sources summary{cursor:pointer;font-weight:600;min-height:40px}.sources summary::after{content:'▾';margin-left:auto;padding-left:10px;color:var(--mut)}.sources[open] summary::after{content:'▴'}.sources[open]{padding-bottom:8px}.sources .source-snippet{color:var(--mut);font-size:12px}
 
 header{gap:8px}
 .hl{display:flex;align-items:center;gap:10px;min-width:0}
@@ -516,7 +516,8 @@ if(store('jv_el_down')==='1'){store('jv_el_down','0');store('jv_el_until','0');m
 if(run!==curRun)return;
 return new Promise(function(res){var url=URL.createObjectURL(b);au.src=url;au.onended=au.onerror=function(){URL.revokeObjectURL(url);res()};var pl=au.play();if(pl&&pl.then)pl.then(function(){if(run===curRun)setS('speaking')}).catch(res)})},
 function(e){if(run!==curRun)return;elFail(e);return native(run,t)})}}
-function part(run,t){t=(t||'').trim();if(!t||run!==curRun)return;var eng=store('jv_eng')==='eleven'&&store('jv_el_key')&&Date.now()>elUntil();
+function spk(t){return String(t||'').replace(/(?:\s*\[\d+(?:\s*[,;–-]\s*\d+)*\])+/g,'').replace(/\s+([.,;:!?])/g,'$1').replace(/\s{2,}/g,' ').trim()}
+function part(run,t){t=spk(t);if(!t||run!==curRun)return;var eng=store('jv_eng')==='eleven'&&store('jv_el_key')&&Date.now()>elUntil();
 var job=eng?eleven(run,t):function(){return native(run,t)};
 run.q++;run.chain=run.chain.then(job).then(function(){run.q--;chk(run)},function(){run.q--;chk(run)})}
 function fin(run){run.done=true;chk(run)}
