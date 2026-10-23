@@ -185,6 +185,12 @@ dialog[open]{animation:slidein .25s ease-out}
 <p class="hint">Mitca es la líder del equipo: conversación, ideas y todo lo demás. Marcos, el más inteligente: ciencia, tecnología, Word, Excel e investigaciones; además trae una calculadora científica interna sin botón, así que pídele cualquier cuenta (porcentajes, raíces, trigonometría, logaritmos, factoriales…). Miranda, protectora del hogar: casa inteligente, cocina, salud, mascotas, plantas y pendientes. Marcia, INFJ empoderada: emociones, relaciones y decisiones personales. También puedes llamarlas por su nombre. Si eliges una a mano, se queda hasta que pidas algo de otra área.</p>
 <textarea id="sys" hidden></textarea>
 
+<h3>Avisos con la pantalla apagada</h3>
+<p class="hint">Para que un temporizador te avise aunque bloquees el celular. Necesita tu token de arriba y el Worker de avisos (mitca-push). Puede llegar hasta un minuto más tarde.</p>
+<label for="pwu">Dirección del Worker de avisos</label>
+<input id="pwu" type="text" autocomplete="off">
+<div class="row"><button id="pon" class="sec" type="button">Activar avisos</button><button id="ptest" class="sec" type="button">Probar (1 min)</button></div>
+<p id="pmsg" class="hint"></p>
 <h3>Voz</h3>
 <label for="eng">Motor de voz</label>
 <select id="eng"><option value="web">Voz del celular (gratis)</option><option value="eleven">ElevenLabs (más natural)</option><option value="gem">Gemini (gratis, natural)</option><option value="mis">Mistral Voxtral (español: Elena)</option></select>
@@ -555,6 +561,10 @@ $('voz').addEventListener('change',function(){store(vkey(),$('voz').value)});
 function engUI(){var e=store('jv_eng')==='eleven';$('webv').hidden=e;$('elv').hidden=!e;$('gemh').hidden=store('jv_eng')!=='gem';$('mish').hidden=store('jv_eng')!=='mis'}
 $('eng').value=({eleven:1,gem:1,mis:1}[store('jv_eng')]?store('jv_eng'):'web');engUI();$('gtfb').checked=store('jv_gtfb')!=='0';$('gtfb').addEventListener('change',function(){store('jv_gtfb',$('gtfb').checked?'1':'0')});
 $('eng').addEventListener('change',function(){store('jv_eng',$('eng').value);engUI()});
+$('pwu').value=store('jv_pushurl')||'';$('pwu').placeholder=PUSH_URL;$('pwu').addEventListener('change',function(){store('jv_pushurl',$('pwu').value.trim())});
+$('pmsg').textContent=pOn()?'Avisos activados en este celular.':'Sin activar.';
+$('pon').addEventListener('click',async function(){var h=$('pmsg');h.textContent='Activando…';try{await pushEnable();h.textContent='Listo: avisos activados. Toca «Probar» y bloquea la pantalla.'}catch(e){h.textContent='No se pudo: '+(e.message||'error')}});
+$('ptest').addEventListener('click',async function(){var h=$('pmsg');if(!pOn()){h.textContent='Primero toca «Activar avisos».';return}h.textContent='Programando…';var ok=await pushSched('prueba',Date.now()+60000,'Aviso de prueba de Mitca. ¡Funciona!');h.textContent=ok?'Listo: en 1 minuto debe llegar la notificación (puede tardar hasta un minuto más). Bloquea la pantalla.':'No se pudo programar. Revisa el Worker de avisos y tu token.'});
 $('elk').value=store('jv_el_key')||'';$('elk').addEventListener('change',function(){store('jv_el_key',$('elk').value.trim())});
 $('elm').value=store('jv_el_model')||'eleven_flash_v2_5';$('elm').addEventListener('change',function(){store('jv_el_model',$('elm').value.trim()||'eleven_flash_v2_5')});
 var elList=[];
@@ -821,9 +831,26 @@ function parseDur(t){var f=fold(t);if(/media hora/.test(f))return{ms:18e5,lb:'me
 var m=f.match(/(\d+(?:[.,]\d+)?|cuarenta y cinco|un|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|quince|veinte|treinta|cuarenta|cincuenta|sesenta)\s*(segundos?|minutos?|horas?)/);if(!m)return null;
 var n=isNaN(parseFloat(m[1]))?NUM[m[1]]:parseFloat(m[1].replace(',','.')),c=m[2].charAt(0),u=c==='s'?1e3:(c==='m'?6e4:36e5);
 if(!n||n<=0||n*u>864e5)return null;return{ms:n*u,lb:m[0]}}
+var PUSH_URL='https://mitca-push.samsungabryanmisael.workers.dev';
+function pBase(){return String(store('jv_pushurl')||PUSH_URL).trim().replace(/\/$/,'')}
+function pHdr(){return{'content-type':'application/json','x-mitca-token':GW.tok||''}}
+function pOn(){return store('jv_push')==='1'&&!!GW.tok&&!!store('jv_push_sub')}
+function pU8(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';var b=atob(s),u=new Uint8Array(b.length);for(var i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u}
+function pCK(){return new URL('./push-scope/rem-list',document.baseURI).href}
+async function pList(){try{var r=await (await caches.open('mitca-rem')).match(pCK());return r?await r.json():[]}catch(e){return[]}}
+async function pSave(l){try{await (await caches.open('mitca-rem')).put(pCK(),new Response(JSON.stringify(l)))}catch(e){}}
+async function pushReg(){var reg=await navigator.serviceWorker.register('push-sw.js',{scope:'./push-scope/'});if(!reg.active){await new Promise(function(res){var w=reg.installing||reg.waiting;if(!w||w.state==='activated'){res();return}w.addEventListener('statechange',function(){if(w.state==='activated')res()});setTimeout(res,8000)})}return reg}
+async function pushEnable(){if(!GW.tok)throw new Error('primero pega tu token en Configuración (puerta segura)');if(!('serviceWorker' in navigator)||!('PushManager' in window)||!('Notification' in window))throw new Error('este navegador no permite avisos push');
+if(await Notification.requestPermission()!=='granted')throw new Error('no diste permiso de notificaciones');
+var kr=await fetch(pBase()+'/api/push/key',{headers:pHdr()});if(!kr.ok)throw new Error('el Worker de avisos respondió '+kr.status+(kr.status===401?' (el token no coincide)':''));var key=(await kr.json()).key;
+var reg=await pushReg(),old=await reg.pushManager.getSubscription();if(old){try{await old.unsubscribe()}catch(e){}}
+var sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:pU8(key)});store('jv_push_sub',sub.endpoint);store('jv_push','1')}
+async function pushSched(id,at,text){if(!pOn())return false;try{var l=(await pList()).filter(function(x){return x.id!==id&&x.at>Date.now()-36e5});l.push({id:id,at:at,text:text});await pSave(l);var r=await fetch(pBase()+'/api/push/schedule',{method:'POST',headers:pHdr(),body:JSON.stringify({id:id,at:at,sub:store('jv_push_sub')})});return r.ok}catch(e){return false}}
+async function pushCancel(id){if(!pOn())return;try{await pSave((await pList()).filter(function(x){return x.id!==id}));await fetch(pBase()+'/api/push/cancel',{method:'POST',headers:pHdr(),body:JSON.stringify({id:id})})}catch(e){}}
+async function pushCancelAll(){if(!pOn())return;try{await pSave([]);await fetch(pBase()+'/api/push/cancel',{method:'POST',headers:pHdr(),body:JSON.stringify({all:true,sub:store('jv_push_sub')})})}catch(e){}}
 function beep(){try{var c=new (window.AudioContext||window.webkitAudioContext)(),o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.frequency.value=880;g.gain.value=.2;o.start();setTimeout(function(){o.stop();c.close()},600)}catch(e){}}
-function startTimer(d){var id=setTimeout(function(){tms=tms.filter(function(x){return x!==id});beep();try{if(navigator.vibrate)navigator.vibrate([300,150,300])}catch(e){}
-var m='Tu temporizador de '+d.lb+' terminó.';add('a',m);say(m)},d.ms);tms.push(id)}
+function startTimer(d){var pid='t'+Date.now()+Math.floor(Math.random()*1e3),id=setTimeout(function(){tms=tms.filter(function(x){return x!==id});if(document.visibilityState==='visible')pushCancel(pid);beep();try{if(navigator.vibrate)navigator.vibrate([300,150,300])}catch(e){}
+var m='Tu temporizador de '+d.lb+' terminó.';add('a',m);say(m)},d.ms);tms.push(id);pushSched(pid,Date.now()+d.ms,'Tu temporizador de '+d.lb+' terminó.')}
 function lk2(lab,url){return{reply:'Listo, toca el botón para abrirlo.',link:{lab:lab,url:url}}}
 function mbIntent(text){var f=fold(text),m,c=function(x){return x.replace(/[.?!¿¡]+$/,'').trim()};
 if((m=f.match(/(?:discografia|albumes|albums)\s+(?:de la|del|de)\s+(.+)/)))return{q:c(m[1]),alb:1};
@@ -844,8 +871,8 @@ catch(e){out=sy='No pude consultar MusicBrainz ('+(e.message||'sin conexión')+'
 var b=add('a',out);if(link){b.appendChild(document.createElement('br'));var al=document.createElement('a');al.className='lnk';al.href=link.url;al.target='_blank';al.rel='noopener';al.textContent=link.lab;b.appendChild(al)}
 hist.push({role:'assistant',content:out});say(sy)}
 function localIntent(text){var f=fold(text),m;
-if(/(cancela|quita|para|deten)\w*.*(temporizador|timer|alarma)/.test(f)){var n=tms.length;tms.forEach(clearTimeout);tms=[];return{reply:n?'Listo, cancelé el temporizador.':'No hay ningún temporizador activo.'}}
-if(/(temporizador|timer|avisame|recuerdame|alarma|cuenta regresiva)/.test(f)){var d=parseDur(text);if(d){startTimer(d);return{reply:'Listo, te aviso en '+d.lb+'. Mantén esta página abierta.'}}}
+if(/(cancela|quita|para|deten)\w*.*(temporizador|timer|alarma)/.test(f)){var n=tms.length;tms.forEach(clearTimeout);tms=[];pushCancelAll();return{reply:n?'Listo, cancelé el temporizador.':'No hay ningún temporizador activo.'}}
+if(/(temporizador|timer|avisame|recuerdame|alarma|cuenta regresiva)/.test(f)){var d=parseDur(text);if(d){startTimer(d);return{reply:'Listo, te aviso en '+d.lb+'.'+(pOn()?' Si apagas la pantalla te llegará una notificación (puede tardar hasta un minuto más).':' Mantén esta página abierta.')}}}
 var cl=function(x){return x.replace(/[.?!¿¡]+$/,'').trim()};
 if((m=text.match(/busca(?:r)?(?: en)? google\s+(.+)/i)))return lk2('Buscar en Google','https://www.google.com/search?q='+encodeURIComponent(cl(m[1])));
 if((m=text.match(/(?:pon|busca|abre|reproduce)(?:me)?\s+(.+?)\s+en youtube/i))||(m=text.match(/(?:abre|pon|busca)\s+youtube\s+(?:con |de )?(.+)/i)))return lk2('Abrir en YouTube','https://www.youtube.com/results?search_query='+encodeURIComponent(cl(m[1])));
