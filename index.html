@@ -187,8 +187,9 @@ dialog[open]{animation:slidein .25s ease-out}
 
 <h3>Voz</h3>
 <label for="eng">Motor de voz</label>
-<select id="eng"><option value="web">Voz del celular (gratis)</option><option value="eleven">ElevenLabs (más natural)</option><option value="gem">Gemini (gratis, natural)</option></select>
+<select id="eng"><option value="web">Voz del celular (gratis)</option><option value="eleven">ElevenLabs (más natural)</option><option value="gem">Gemini (gratis, natural)</option><option value="mis">Mistral Voxtral (español: Elena)</option></select>
 <p id="gemh" class="hint" hidden>Usa tu llave de Gemini (la misma de la IA). Cada personalidad tiene su voz. Si Gemini falla o se acaba la cuota, cambia sola a la voz del celular.</p>
+<p id="mish" class="hint" hidden>Usa tu llave de Mistral. Solo hay una voz en español (Elena) y es de mujer, así que todas las personalidades suenan igual. Si falla o se acaba la cuota, cambia sola a la voz del celular.</p>
 <div id="webv"><label for="voz">Voz del celular</label><select id="voz"></select></div>
 <div id="elv" hidden>
 <label for="elk" id="elkl">Llave de ElevenLabs</label>
@@ -197,7 +198,7 @@ dialog[open]{animation:slidein .25s ease-out}
 <select id="elvs"></select>
 <div class="row"><button id="elload" class="sec" type="button">Cargar mis voces</button></div>
 <p id="elmsg" class="hint"></p>
-<label class="chk"><input type="checkbox" id="gtfb">Si ElevenLabs falla o se acaba, probar la voz de Gemini antes de la del celular</label>
+<label class="chk"><input type="checkbox" id="gtfb">Si ElevenLabs falla o se acaba, probar la voz de Gemini y luego la de Mistral antes de la del celular</label>
 <label for="elm">Modelo de voz</label>
 <input id="elm" type="text">
 <p class="hint">El plan gratis da unos 10 minutos de voz al mes, según su sitio. Si se acaba o falla, cambia sola a la voz del celular y vuelve a ElevenLabs en cuanto se pueda.</p>
@@ -531,21 +532,28 @@ function wavOf(u8,rate){var n=u8.length,b=new ArrayBuffer(44+n),v=new DataView(b
 function gBlob(a){var mime=String(a.mimeType||''),bin=atob(a.data),u8=new Uint8Array(bin.length);for(var i=0;i<bin.length;i++)u8[i]=bin.charCodeAt(i);if(!mime||/L16|pcm/i.test(mime)){var m=/rate=(\d+)/.exec(mime);return wavOf(u8,m?parseInt(m[1],10):24000)}return new Blob([u8],{type:mime})}
 function gFail(e){var s=e.status,pause=s===429?6e5:((s===400||s===401||s===403||s===404)?216e5:12e4);store('jv_gt_until',String(Date.now()+pause));msg(s===429?'Se acabó la cuota de voz de Gemini por ahora: uso la voz del celular.':'La voz de Gemini no respondió ('+(s||'sin red')+'): uso la voz del celular un rato.')}
 function playBlob(run,b){return new Promise(function(res){var url=URL.createObjectURL(b);au.src=url;au.onended=au.onerror=function(){URL.revokeObjectURL(url);res()};var pl=au.play();if(pl&&pl.then)pl.then(function(){if(run===curRun)setS('speaking')}).catch(res)})}
+function mUntil(){return parseInt(store('jv_mt_until')||'0',10)||0}
+function mOK(){return keysOf(store('jv_key_mistral')).length>0&&Date.now()>mUntil()}
+function mFail(e){var s=e.status,pause=s===429?6e5:((s===400||s===401||s===402||s===403||s===404||s===422)?216e5:12e4);store('jv_mt_until',String(Date.now()+pause));msg(s===429?'Se acabó la cuota de voz de Mistral por ahora: uso la voz del celular.':'La voz de Mistral no respondió ('+(s||'sin red')+'): uso la voz del celular un rato.')}
+function mtts(run,t){var k=keysOf(store('jv_key_mistral'))[0],mod=store('jv_mt_model')||'voxtral-mini-tts-3-0',vid=store('jv_mt_voice')||'voice_483';
+var p=fetch('https://api.mistral.ai/v1/audio/speech',{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer '+k},body:JSON.stringify({model:mod,input:t,voice_id:vid,response_format:'mp3'})}).then(function(r){return r.json().catch(function(){return{}}).then(function(d){if(!r.ok){var e=new Error((d.message&&String(d.message))||('HTTP '+r.status));e.status=r.status;throw e}if(!d.audio_data)throw new Error('sin audio');return gBlob({mimeType:'audio/mpeg',data:d.audio_data})})});
+p.catch(function(){});
+return function(){return p.then(function(b){if(run!==curRun)return;if(mUntil())store('jv_mt_until','0');return playBlob(run,b)},function(e){if(run!==curRun)return;mFail(e);return native(run,t)})}}
 function gtts(run,t){var k=gKeys()[0],vn=gVoice(),mod=store('jv_gt_model')||'gemini-3.8-flash-lite-tts';
 var p=fetch('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(mod)+':generateContent',{method:'POST',headers:{'content-type':'application/json','x-goog-api-key':k},body:JSON.stringify({contents:[{parts:[{text:t}]}],generationConfig:{responseModalities:['AUDIO'],speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:vn}}}}})}).then(function(r){return r.json().catch(function(){return{}}).then(function(d){if(!r.ok){var e=new Error((d.error&&d.error.message)||('HTTP '+r.status));e.status=r.status;throw e}var ps=(((d.candidates||[])[0]||{}).content||{}).parts||[],a=null;ps.forEach(function(x){if(x.inlineData&&x.inlineData.data)a=x.inlineData});if(!a)throw new Error('sin audio');return gBlob(a)})});
 p.catch(function(){});
-return function(){return p.then(function(b){if(run!==curRun)return;if(store('jv_gt_until')!=='0'&&gUntil()){store('jv_gt_until','0')}return playBlob(run,b)},function(e){if(run!==curRun)return;gFail(e);return native(run,t)})}}
-function alt(run,t){return(store('jv_gtfb')!=='0'&&gOK())?gtts(run,t)():native(run,t)}
+return function(){return p.then(function(b){if(run!==curRun)return;if(store('jv_gt_until')!=='0'&&gUntil()){store('jv_gt_until','0')}return playBlob(run,b)},function(e){if(run!==curRun)return;gFail(e);return alt(run,t,true)})}}
+function alt(run,t,skipG){if(store('jv_gtfb')!=='0'){if(!skipG&&gOK())return gtts(run,t)();if(mOK())return mtts(run,t)()}return native(run,t)}
 function spk(t){return String(t||'').replace(/(?:\s*\[\d+(?:\s*[,;–-]\s*\d+)*\])+/g,'').replace(/\s+([.,;:!?])/g,'$1').replace(/\s{2,}/g,' ').trim()}
 function part(run,t){t=spk(t);if(!t||run!==curRun)return;var em=store('jv_eng'),eng=em==='eleven'&&store('jv_el_key')&&Date.now()>elUntil();
-var job=eng?eleven(run,t):(em==='gem'&&gOK()?gtts(run,t):(em==='eleven'?function(){return alt(run,t)}:function(){return native(run,t)}));
+var job=eng?eleven(run,t):(em==='gem'&&gOK()?gtts(run,t):(em==='mis'&&mOK()?mtts(run,t):((em==='eleven'||em==='gem'||em==='mis')?function(){return alt(run,t)}:function(){return native(run,t)})));
 run.q++;run.chain=run.chain.then(job).then(function(){run.q--;chk(run)},function(){run.q--;chk(run)})}
 function fin(run){run.done=true;chk(run)}
 function say(t){var r=startRun();part(r,t);fin(r)}
 if('speechSynthesis' in window){fillV();speechSynthesis.onvoiceschanged=fillV}
 $('voz').addEventListener('change',function(){store(vkey(),$('voz').value)});
-function engUI(){var e=store('jv_eng')==='eleven';$('webv').hidden=e;$('elv').hidden=!e;$('gemh').hidden=store('jv_eng')!=='gem'}
-$('eng').value=store('jv_eng')==='eleven'?'eleven':(store('jv_eng')==='gem'?'gem':'web');engUI();$('gtfb').checked=store('jv_gtfb')!=='0';$('gtfb').addEventListener('change',function(){store('jv_gtfb',$('gtfb').checked?'1':'0')});
+function engUI(){var e=store('jv_eng')==='eleven';$('webv').hidden=e;$('elv').hidden=!e;$('gemh').hidden=store('jv_eng')!=='gem';$('mish').hidden=store('jv_eng')!=='mis'}
+$('eng').value=({eleven:1,gem:1,mis:1}[store('jv_eng')]?store('jv_eng'):'web');engUI();$('gtfb').checked=store('jv_gtfb')!=='0';$('gtfb').addEventListener('change',function(){store('jv_gtfb',$('gtfb').checked?'1':'0')});
 $('eng').addEventListener('change',function(){store('jv_eng',$('eng').value);engUI()});
 $('elk').value=store('jv_el_key')||'';$('elk').addEventListener('change',function(){store('jv_el_key',$('elk').value.trim())});
 $('elm').value=store('jv_el_model')||'eleven_flash_v2_5';$('elm').addEventListener('change',function(){store('jv_el_model',$('elm').value.trim()||'eleven_flash_v2_5')});
@@ -594,9 +602,12 @@ function countUse(pv,m){var o=usoGet(),k=pv+':'+m;o[k]=(o[k]||0)+1;store('jv_use
 function showUso(){var o=usoGet(),t=[];Object.keys(o).forEach(function(k){if(k!=='d')t.push(k.replace(':',' · ')+' = '+o[k])});$('uso').textContent=t.length?'Peticiones de hoy en este celular: '+t.join('; ')+'. La cuota real está en ai.dev/rate-limit.':'Hoy no has hecho peticiones desde este celular.'}
 function keysOf(v){return(v||'').split(/[\s,;]+/).filter(Boolean)}
 var MX={groq:['qwen/qwen3.8-27b','openai/gpt-oss-20b'],gemini:['gemini-3.6-flash','gemini-3.5-flash-lite','gemini-3.1-flash-lite'],openrouter:['openrouter/free']};
+var MPREF_H=['mistral-large-latest','mistral-medium-latest','mistral-small-latest','ministral-14b-latest','ministral-8b-latest','ministral-3b-latest'],MPREF_L=['mistral-small-latest','ministral-14b-latest','ministral-8b-latest','mistral-medium-latest','mistral-large-latest','ministral-3b-latest'];
+async function misList(){try{var c=JSON.parse(localStorage.getItem('jv_mistlist')||'null');if(c&&Date.now()-c.t<864e5&&c.l&&c.l.length)return c.l;var k=keysOf(store('jv_key_mistral'))[0];if(!k)return[];var r=await fetch('https://api.mistral.ai/v1/models',{headers:{authorization:'Bearer '+k}});if(!r.ok)return[];var j=await r.json(),now=Date.now(),l=(j.data||[]).filter(function(m){var id=String(m.id||''),cp=m.capabilities||{};if(cp.completion_chat===false)return false;if(/embed|moderation|ocr|voxtral|transcri|tts|shield|timestral|classif/i.test(id))return false;if(m.deprecation&&Date.parse(m.deprecation)<now)return false;return/-latest$/.test(id)||/^(zai|z-ai|glm)/i.test(id)}).map(function(m){return m.id});l=l.filter(function(x,i){return l.indexOf(x)===i});if(l.length)localStorage.setItem('jv_mistlist',JSON.stringify({t:Date.now(),l:l}));return l}catch(e){return[]}}
+function misOrder(l){var pr=HVY?MPREF_H:MPREF_L,o=[];pr.forEach(function(x){if(l.indexOf(x)>-1)o.push(x)});l.forEach(function(x){if(o.indexOf(x)<0)o.push(x)});return o.length?o:pr.slice(0,4)}
 async function orFree(){try{var c=JSON.parse(localStorage.getItem('jv_orfree')||'null');if(c&&Date.now()-c.t<864e5)return c.l;var r=await fetch('https://openrouter.ai/api/v1/models'),j=await r.json(),lim=new Date(Date.now()+12096e5).toISOString().slice(0,10),l=(j.data||[]).filter(function(m){var p=m.pricing||{},o=(m.architecture&&m.architecture.output_modalities)||['text'];return/:free$/.test(m.id)&&+p.prompt===0&&+p.completion===0&&o.length===1&&o[0]==='text'&&(m.context_length||0)>=32000&&!/embed|rerank|guard|safety|safeguard|tts|audio|image/i.test(m.id)&&!(m.expiration_date&&String(m.expiration_date)<lim)}).sort(function(a,b){return(b.created||0)-(a.created||0)}).slice(0,4).map(function(m){return m.id});localStorage.setItem('jv_orfree',JSON.stringify({t:Date.now(),l:l}));return l}catch(e){return[]}}
-function mlist(m,p){var a=String(m||'').split(/[\s,;]+/).filter(Boolean);if(a.length>1)return a;(MX[p]||[]).forEach(function(x){if(a.indexOf(x)<0)a.push(x)});return a}
-async function callChain(k,md,pv,sys,onT,sig){if(pv==='openrouter'||store('jv_key_openrouter')){var of=await orFree();MX.openrouter=['openrouter/free'].concat(of)}var tr=[],fb=store('jv_fbm')||'gemini-3.5-flash-lite',got=false,last;
+function mlist(m,p){if(p==='mistral'&&(!m||m===P.mistral.model)&&MX.mistral&&MX.mistral.length)return MX.mistral.slice();var a=String(m||'').split(/[\s,;]+/).filter(Boolean);if(a.length>1)return a;(MX[p]||[]).forEach(function(x){if(a.indexOf(x)<0)a.push(x)});return a}
+async function callChain(k,md,pv,sys,onT,sig){if(pv==='mistral'||store('jv_key_mistral')){MX.mistral=misOrder(await misList())}if(pv==='openrouter'||store('jv_key_openrouter')){var of=await orFree();MX.openrouter=['openrouter/free'].concat(of)}var tr=[],fb=store('jv_fbm')||'gemini-3.5-flash-lite',got=false,last;
 mlist(md,pv).forEach(function(mm){keysOf(k).forEach(function(x){tr.push([x,mm,pv])})});
 if(pv==='gemini'&&fb&&fb!==md)keysOf(k).forEach(function(x){tr.push([x,fb,'gemini'])});
 (HVY?['gemini','mistral','groq','cfai','openrouter','cerebras','deepseek','custom']:['gemini','groq','cfai','openrouter','mistral','cerebras','deepseek','custom']).forEach(function(x){if(x===pv)return;var m=store('jv_mod_'+x)||P[x].model;if(!m)return;mlist(m,x).forEach(function(mm){keysOf(store('jv_key_'+x)).forEach(function(xk){tr.push([xk,mm,x])})})});
