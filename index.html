@@ -706,11 +706,16 @@ if(t&&t[1]==='s'&&v)val=ss[+v[1]]||'';else if(is)val=xmlT(is[1]);else if(v)val=x
 out.push('Hoja '+(si+1)+':\n'+rows.slice(0,300).join('\n'))});
 return out.join('\n\n')}
 async function docxText(buf){var f=await unzipFiles(buf,/^word\/document\.xml$/),x=f['word/document.xml']||'';return xmlT(x.replace(/<\/w:p>/g,'\n').replace(/<w:tab\/>/g,' '))}
+var PDFJS_V='3.11.174';
+async function pdfjsLoad(){if(window.pdfjsLib)return window.pdfjsLib;await new Promise(function(ok,no){var s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/'+PDFJS_V+'/pdf.min.js';s.onload=ok;s.onerror=function(){no(new Error('no pude cargar el lector de PDF (¿sin internet?)'))};document.head.appendChild(s)});window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/'+PDFJS_V+'/pdf.worker.min.js';return window.pdfjsLib}
+async function pdfText(buf,lib){var d=await (lib||await pdfjsLoad()).getDocument({data:new Uint8Array(buf)}).promise,out=[],n=Math.min(d.numPages,60);for(var i=1;i<=n;i++){var p=await d.getPage(i),c=await p.getTextContent();out.push('Página '+i+':\n'+c.items.map(function(x){return x.str}).join(' '))}if(d.numPages>n)out.push('(Solo leí las primeras '+n+' de '+d.numPages+' páginas.)');return out.join('\n\n')}
 $('attb').addEventListener('click',function(){if(PEND){attSet(null);msg('');return}$('attf').click()});
 $('attf').addEventListener('change',async function(){var f=this.files&&this.files[0];this.value='';if(!f)return;
 try{msg('Leyendo '+f.name+'…');var nm=f.name,lw=nm.toLowerCase(),ty=f.type||'';
 if(/^image\//.test(ty)){attSet({name:nm,kind:'img',mime:'image/jpeg',b64:await imgB64(f)})}
-else if(ty==='application/pdf'||/\.pdf$/.test(lw)){if(f.size>8e6)throw new Error('el PDF pesa más de 8 MB');attSet({name:nm,kind:'pdf',mime:'application/pdf',b64:await fileB64(f)})}
+else if(ty==='application/pdf'||/\.pdf$/.test(lw)){if(f.size>8e6)throw new Error('el PDF pesa más de 8 MB');
+if(GW.tok&&f.size>12e5){msg('PDF grande ('+(f.size/1e6).toFixed(1)+' MB): leyendo su texto aquí en el celular…');var tx=await pdfText(await f.arrayBuffer());if(tx.replace(/Página \d+:|\s/g,'').length<200)throw new Error('el PDF pesa '+(f.size/1e6).toFixed(1)+' MB, la puerta segura solo deja pasar archivos de ~1.2 MB y este no tiene texto que pueda leer (¿es escaneado?). Prueba con uno más chico');attSet({name:nm,kind:'txt',text:tx.slice(0,60000)})}
+else attSet({name:nm,kind:'pdf',mime:'application/pdf',b64:await fileB64(f)})}
 else if(/\.xlsx$/.test(lw)){attSet({name:nm,kind:'txt',text:await xlsxText(await f.arrayBuffer())})}
 else if(/\.docx$/.test(lw)){attSet({name:nm,kind:'txt',text:await docxText(await f.arrayBuffer())})}
 else if(/\.(csv|tsv|txt|md|json)$/.test(lw)||/^text\//.test(ty)){attSet({name:nm,kind:'txt',text:await f.text()})}
