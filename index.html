@@ -276,7 +276,8 @@ autoSwitch(p)}
 $('auto').checked=store('jv_auto')!=='0';$('auto').addEventListener('change',function(){store('jv_auto',$('auto').checked?'1':'0')});
 $('sys').addEventListener('change',function(){store('jv_sys',$('sys').value)});
 $('key').addEventListener('change',save);$('mod').addEventListener('change',save);$('basec').addEventListener('change',save);
-var hist=[],curRun=null,ctl=null,MT=300;
+var hist=[],curRun=null,ctl=null,MT=300,WHY='';
+function H(){var a=hist.filter(function(x){return x.content&&x.content!=='(sin respuesta)'}).slice(-16);while(a.length&&a[0].role!=='user')a.shift();return a}
 function clearChat(){if(ctl)ctl.abort();curRun=null;stopAudio();hist=[];$('log').innerHTML='';setS('idle');msg('')}
 $('prov').addEventListener('change',function(){save();cur=$('prov').value;store('jv_prov',cur);load();clearChat();msg('Cambiaste a '+pn(cur)+'.')});
 $('gear').addEventListener('click',function(){showUso();var u=elUntil();
@@ -375,8 +376,8 @@ if(!resp.body||!resp.body.getReader){(await resp.text()).split('\n').forEach(lin
 var rd=resp.body.getReader(),dec=new TextDecoder(),b='';
 for(;;){var x=await rd.read();if(x.done)break;b+=dec.decode(x.value,{stream:true});var i;while((i=b.indexOf('\n'))>=0){var l=b.slice(0,i);b=b.slice(i+1);line(l)}}
 if(b)line(b)}
-function bodyC(m,sys){var w=$('web').checked,b={model:m,max_tokens:MT,stream:true,system:sys,messages:hist};if(w)b.tools=[{type:'web_search_20250305',name:'web_search',max_uses:2}];return b}
-function bodyG(sys){var w=$('web').checked,b={systemInstruction:{parts:[{text:sys}]},contents:hist.map(function(h){return{role:h.role==='assistant'?'model':'user',parts:[{text:h.content}]}}),generationConfig:{maxOutputTokens:MT}};if(w)b.tools=[{google_search:{}}];return b}
+function bodyC(m,sys){var w=$('web').checked,b={model:m,max_tokens:MT,stream:true,system:sys,messages:H()};return b}
+function bodyG(sys){var w=$('web').checked,b={systemInstruction:{parts:[{text:sys}]},contents:H().map(function(h){return{role:h.role==='assistant'?'model':'user',parts:[{text:h.content}]}}),generationConfig:{maxOutputTokens:Math.max(MT,1500)}};return b}
 var BASES={groq:'https://api.groq.com/openai/v1',openrouter:'https://openrouter.ai/api/v1',mistral:'https://api.mistral.ai/v1',cerebras:'https://api.cerebras.ai/v1',sambanova:'https://api.sambanova.ai/v1',deepseek:'https://api.deepseek.com/v1'};
 function pn(p){return{gemini:'Gemini',claude:'Claude',groq:'Groq',openrouter:'OpenRouter',mistral:'Mistral',cerebras:'Cerebras',sambanova:'SambaNova',deepseek:'DeepSeek',custom:'tu servicio'}[p]||p}
 function usoGet(){var d=new Date().toISOString().slice(0,10),o={};try{o=JSON.parse(store('jv_use')||'{}')}catch(e){}if(!o||o.d!==d)o={d:d};return o}
@@ -393,9 +394,9 @@ for(var i=0;i<tr.length;i++){try{await callAI(tr[i][0],tr[i][1],sys,function(d){
 catch(e){last=e;if(got||e.name==='AbortError'||!/quota|exceed|rate|exhaust|429|overload|unavailable|demand|401|402|403|unauthor|api key|credit|balance|billing/i.test(e.message||''))throw e}}
 throw last}
 async function callAI(k,m,sys,onT,sig,pv){pv=pv||cur;if(pv==='custom'){var cb=(store('jv_base_custom')||'').trim().replace(/\/+$/,'');if(!cb)throw new Error('falta la dirección del servicio personalizado');BASES.custom=cb}countUse(pv,m);
-if(BASES[pv]){var r3=await fetch(BASES[pv]+'/chat/completions',{method:'POST',signal:sig,headers:{'content-type':'application/json','authorization':'Bearer '+k},body:JSON.stringify({model:m,max_tokens:MT,stream:true,messages:[{role:'system',content:sys}].concat(hist.map(function(h){return{role:h.role,content:h.content}}))})});
+if(BASES[pv]){var r3=await fetch(BASES[pv]+'/chat/completions',{method:'POST',signal:sig,headers:{'content-type':'application/json','authorization':'Bearer '+k},body:JSON.stringify({model:m,max_tokens:Math.max(MT,1000),stream:true,messages:[{role:'system',content:sys}].concat(H().map(function(h){return{role:h.role,content:h.content}}))})});
 if(!r3.ok){var d3=await r3.json().catch(function(){return{}});if(Array.isArray(d3))d3=d3[0]||{};var em=d3.error;throw new Error(((em&&(em.message||(typeof em==='string'?em:'')))||'error')+' ('+r3.status+')')}
-await sse(r3,function(o){var c=o.choices&&o.choices[0];if(c&&c.delta&&c.delta.content)onT(c.delta.content)});return}
+await sse(r3,function(o){var c=o.choices&&o.choices[0];if(c&&c.finish_reason)WHY=c.finish_reason;if(c&&c.delta&&c.delta.content)onT(c.delta.content)});return}
 if(pv==='claude'){
 var r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',signal:sig,headers:{'content-type':'application/json','x-api-key':k,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify(bodyC(m,sys))});
 if(!r.ok){var d=await r.json().catch(function(){return{}});throw new Error((d.error&&d.error.message)||r.status)}
@@ -404,7 +405,7 @@ return}
 var r2=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(m)+':streamGenerateContent?alt=sse',{method:'POST',signal:sig,headers:{'content-type':'application/json','x-goog-api-key':k},
 body:JSON.stringify(bodyG(sys))});
 if(!r2.ok){var d2=await r2.json().catch(function(){return{}});if(Array.isArray(d2))d2=d2[0]||{};throw new Error((d2.error&&d2.error.message)||r2.status)}
-await sse(r2,function(o){var c=o.candidates&&o.candidates[0];((c&&c.content&&c.content.parts)||[]).forEach(function(p){if(p.text)onT(p.text)})})}
+await sse(r2,function(o){var c=o.candidates&&o.candidates[0];if(c&&c.finishReason)WHY=c.finishReason;if(o.promptFeedback&&o.promptFeedback.blockReason)WHY='BLOCK '+o.promptFeedback.blockReason;((c&&c.content&&c.content.parts)||[]).forEach(function(p){if(p.text)onT(p.text)})})}
 function webMode(text){
   if(!$('web').checked)return '';
   var t=fold(String(text||'')).replace(/[¿?¡!.,;:()"]/g,' ').replace(/\s+/g,' ').trim();
@@ -471,13 +472,15 @@ var m;while((m=buf.match(/^([\s\S]*?(?:[.!?…]+["”’)]*\s|\n))/))){buf=buf.s
 try{
 var webContext='';
 if(wmode){msg(wmode==='deep'?'Investigando en la web…':'Buscando en la web…');try{webSources=await searchWebForMitca(text,ctl.signal);webContext=formatWebContext(webSources,wmode);msg('')}catch(searchErr){if(searchErr.name==='AbortError')throw searchErr;webContext='\n\nLa búsqueda web falló: '+(searchErr.message||'error desconocido')+'. No afirmes que consultaste fuentes ni inventes citas.';msg('No pude recuperar fuentes web; responderé sin citas verificadas.')}}
-var used=await callChain(k,md,pv,$('sys').value+nowText()+memText()+webContext+(fm?FILEP:''),feed,ctl.signal);
-if(!full)feed('(sin respuesta)');
+WHY='';var sysP=$('sys').value+nowText()+memText()+webContext+(fm?FILEP:'');
+var used=await callChain(k,md,pv,sysP,feed,ctl.signal);
+if(!full.trim()){msg('La IA no devolvió texto; reintentando…');MT=Math.max(MT,1500);try{used=await callChain(k,md,pv,sysP,feed,ctl.signal)}catch(e2){if(e2.name==='AbortError')throw e2}msg('')}
+if(!full.trim())throw new Error('La IA no devolvió respuesta'+(WHY?' ('+WHY+')':'')+'. Prueba de nuevo o cambia de IA en Configuración.');
 var fx=full.match(/<archivo>([\s\S]*)$/),vf=vis(full).trim(),fname=null;
 part(run,pend+buf);fin(run);
 if(fx){fname=makeFile(fx[1],el,true);if(!fname){msg('Corrigiendo el archivo...');fname=await repair(used[0],used[1],used[2],$('sys').value+nowText()+memText()+webContext+FILEP,vf,el);msg('')}}
 appendWebSources(el,webSources);
-hist.push({role:'assistant',content:(vf+(fx?' [Creé el archivo '+(fname||'sin éxito')+']':''))+(webSources.length?'\nFuentes consultadas: '+webSources.map(function(x,i){return '['+(i+1)+'] '+x.title+' '+x.url}).join(' | '):'')||'ok'});
+hist.push({role:'assistant',content:(vf+(fx?' [Creé el archivo '+(fname||'sin éxito')+']':''))+(webSources.length?'\nFuentes consultadas: '+webSources.map(function(x,i){return '['+(i+1)+'] '+x.title}).join(' | '):'')||'ok'});
 }catch(e){
 if(vis(full).trim()){hist.push({role:'assistant',content:vis(full).trim()})}else{hist.pop();if(el)el.remove()}
 if(e.name==='AbortError')return;
