@@ -256,6 +256,10 @@ button,.av,.m{transition:background-color .3s,border-color .3s}
 </dialog>
 
 <script>
+// Selector global compartido por la calculadora y el asistente.
+// Corrección: el código de la calculadora se ejecuta antes del inicializador original.
+var $ = function(id){ return document.getElementById(id); };
+
 // Calculadora científica local: parser propio, sin eval() ni dependencias externas.
 var calcAngleMode='deg';
 function calcTokens(src){
