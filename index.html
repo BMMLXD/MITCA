@@ -62,6 +62,17 @@ dialog::backdrop{background:rgba(0,0,0,.6)}
 .dc label{display:block;font-size:.9rem;color:var(--mut);margin:12px 0 4px}
 .dc p,.hint{font-size:.9rem;color:var(--mut);margin:6px 0}
 textarea{min-height:120px;resize:vertical}
+.grp{padding:0;margin:10px 0;border-radius:14px;overflow:hidden}
+.grp>summary{list-style:none;min-height:62px;padding:8px 16px;justify-content:space-between;gap:12px}
+.grp>summary::-webkit-details-marker{display:none}
+.grp>summary::after{content:"";flex:none;width:10px;height:10px;border-right:2px solid var(--mut);border-bottom:2px solid var(--mut);transform:rotate(45deg);margin:-4px 4px 0 0;transition:transform .2s}
+.grp[open]>summary::after{transform:rotate(225deg);margin-top:4px}
+.grp[open]>summary{border-bottom:1px solid var(--line);background:var(--accbg)}
+.gt{display:flex;flex-direction:column;line-height:1.25}.gt b{font-size:1.05rem}.gt small{font-weight:400;font-size:.82rem;color:var(--mut)}
+.grpb{padding:2px 16px 18px}
+.dc .grpb h3{font-size:.8rem;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);margin:22px 0 4px;padding-top:14px;border-top:1px solid var(--line)}
+.dc .grpb h3:first-child{margin-top:8px;padding-top:0;border-top:0}
+@media (prefers-reduced-motion:reduce){.grp>summary::after{transition:none}}
 .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
 .mem{list-style:none;padding:0;margin:8px 0}
 .mem li{display:flex;gap:8px;align-items:center;justify-content:space-between;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin:6px 0}
@@ -159,8 +170,8 @@ dialog[open]{animation:slidein .25s ease-out}
 <dialog id="cfg">
 <div class="dh"><h2>Configuración</h2><button id="cx" type="button">Listo</button></div>
 <div class="dc">
-<h3>Inteligencia artificial</h3>
-<label for="prov">IA que usará</label>
+<details class="grp" id="g_0"><summary><span class="gt"><b>Modelo de IA</b><small>IA, modelo, proveedores y puerta segura</small></span></summary><div class="grpb">
+<h3 class="subh">Inteligencia artificial</h3><label for="prov">IA que usará</label>
 <select id="prov"><option value="gemini">Gemini (gratis)</option><option value="claude">Claude (de pago)</option><option value="groq">Groq (gratis)</option><option value="openrouter">OpenRouter (gratis)</option><option value="mistral">Mistral (gratis)</option><option value="cerebras">Cerebras (gratis)</option><option value="cfai">Cloudflare IA (gratis, requiere tu token)</option>
 <option value="sambanova">SambaNova (gratis)</option><option value="deepseek">DeepSeek (muy barata)</option><option value="nvidia">NVIDIA (gratis, modelos grandes)</option><option value="custom">Otra (compatible con OpenAI)</option></select>
 <label for="key" id="keyl">Tu llave</label>
@@ -178,22 +189,21 @@ dialog[open]{animation:slidein .25s ease-out}
 <p><b>Claude (de pago):</b></p>
 <ol><li>Entra a <b>console.anthropic.com</b>, crea cuenta y agrega saldo.</li><li>En <b>API Keys</b> crea una llave (empieza con <code>sk-ant-</code>).</li><li>Elige Claude arriba, pega la llave y usa un modelo vigente, por ejemplo <code>claude-sonnet-5-5</code>.</li></ol>
 <p><b>Groq, OpenRouter, Mistral, Cerebras, SambaNova o DeepSeek:</b></p><ol><li>Groq: console.groq.com, sección API Keys.</li><li>OpenRouter: openrouter.ai/keys.</li><li>Mistral: console.mistral.ai, sección API keys.</li><li>Cerebras: cloud.cerebras.ai. SambaNova: cloud.sambanova.ai.</li><li>DeepSeek: platform.deepseek.com (de pago, muy barata).</li><li>NVIDIA: build.nvidia.com, crea cuenta, elige un modelo y toca Get API Key (empieza con nvapi-). Copia el nombre exacto del modelo (por ejemplo meta/llama-3.3-70b-instruct) en «Modelo».</li><li>Otra: cualquier servicio compatible con OpenAI; escribe su dirección terminada en /v1 y el nombre del modelo.</li></ol><p>La llave es como una contraseña: no la compartas ni la subas a GitHub.</p></details>
-
-<h3>Personalidad</h3>
+<h3 class="subh">Proveedores de IA</h3><p class="hint">Mitca prueba las IAs en este orden y salta las que fallan. Usa ↑ ↓ para cambiarlo. Se muestra cómo les ha ido hoy.</p><div id="provp"></div><div class="row"><button id="provr" class="sec" type="button">Actualizar estado</button></div>
+<h3 class="subh">Puerta segura (llaves en Cloudflare)</h3><label for="gwt">Token de acceso de Mitca</label>
+<input id="gwt" type="password" autocomplete="off" placeholder="Pega aquí tu token">
+<p id="gws" class="hint">Con el token puesto, las llaves se manejan solas desde Cloudflare y esta pantalla ya no te las pide. Sin token, Mitca usa las llaves guardadas en este celular.</p>
+<p id="uso" class="hint"></p>
+</div></details>
+<details class="grp" id="g_1"><summary><span class="gt"><b>Personalidad</b><small>Quién te atiende</small></span></summary><div class="grpb">
 <label for="pers">¿Quién te atiende?</label>
-<select id="pers"><option value="a">Mitca · ENTP, ingeniosa y sarcástica</option><option value="b">Marcia · INFJ, empática e intuitiva</option><option value="c">Marcos · INTP, nervioso y nerd</option><option value="d">Miranda · ESTJ, práctica y decidida</option></select>
+<select id="pers"><option value="a">Mitca · líder, ideas y humor</option><option value="b">Marcia · empoderada, emociones y decisiones</option><option value="c">Marcos · ciencia y archivos</option><option value="d">Miranda · hogar y cuidado</option></select>
 <p class="hint">Al cambiar de personalidad se borra la charla en pantalla para que no se mezclen los estilos. Tus recuerdos se conservan.</p>
 <label class="chk"><input type="checkbox" id="auto">Cambiar de personalidad automáticamente según la tarea</label>
-<p class="hint">Mitca es la líder del equipo: conversación, ideas y todo lo demás. Marcos, el más inteligente: ciencia, tecnología, Word, Excel e investigaciones; además trae una calculadora científica interna sin botón, así que pídele cualquier cuenta (porcentajes, raíces, trigonometría, logaritmos, factoriales…). Miranda, protectora del hogar: casa inteligente, cocina, salud, mascotas, plantas y pendientes. Marcia, INFJ empoderada: emociones, relaciones y decisiones personales. También puedes llamarlas por su nombre. Si eliges una a mano, se queda hasta que pidas algo de otra área.</p>
+<p class="hint">Mitca es la líder del equipo: conversación, ideas y todo lo demás. Marcos, el más inteligente: ciencia, tecnología, Word, Excel e investigaciones; además trae una calculadora científica interna sin botón, así que pídele cualquier cuenta (porcentajes, raíces, trigonometría, logaritmos, factoriales…). Miranda, protectora del hogar: casa inteligente, cocina, salud, mascotas, plantas y pendientes. Marcia, empoderada: emociones, relaciones y decisiones personales. También puedes llamarlas por su nombre. Si eliges una a mano, se queda hasta que pidas algo de otra área.</p>
 <textarea id="sys" hidden></textarea>
-
-<h3>Avisos con la pantalla apagada</h3>
-<p class="hint">Para que un temporizador te avise aunque bloquees el celular. Necesita tu token de arriba y el Worker de avisos (mitca-push). Puede llegar hasta un minuto más tarde.</p>
-<label for="pwu">Dirección del Worker de avisos</label>
-<input id="pwu" type="text" autocomplete="off">
-<div class="row"><button id="pon" class="sec" type="button">Activar avisos</button><button id="ptest" class="sec" type="button">Probar (1 min)</button></div>
-<p id="pmsg" class="hint"></p>
-<h3>Voz</h3>
+</div></details>
+<details class="grp" id="g_2"><summary><span class="gt"><b>Voz</b><small>Motor y voz de respuesta</small></span></summary><div class="grpb">
 <label for="eng">Motor de voz</label>
 <select id="eng"><option value="web">Voz del celular (gratis)</option><option value="eleven">ElevenLabs (más natural)</option><option value="gem">Gemini (gratis, natural)</option><option value="mis">Mistral Voxtral (español: Elena)</option><option value="cf">Cloudflare (gratis, español)</option></select>
 <p id="gemh" class="hint" hidden>Usa tu llave de Gemini (la misma de la IA). Cada personalidad tiene su voz. Si Gemini falla o se acaba la cuota, cambia sola a la voz del celular.</p>
@@ -215,23 +225,28 @@ dialog[open]{animation:slidein .25s ease-out}
 <ol><li>Crea una cuenta gratis en <b>elevenlabs.io</b>.</li><li>Entra a tu perfil y busca <b>API keys</b>.</li><li>Crea una llave, cópiala y pégala arriba.</li><li>Toca <b>Cargar mis voces</b> y elige una que suene bien en español.</li></ol></details>
 </div>
 <div class="row"><button id="tv" class="sec" type="button">Probar voz</button></div>
-
-<h3>Activación por voz</h3>
-<label for="wkw">Frases para activarla</label>
+</div></details>
+<details class="grp" id="g_3"><summary><span class="gt"><b>Activación</b><small>Frases de voz y avisos con la pantalla apagada</small></span></summary><div class="grpb">
+<h3 class="subh">Activación por voz</h3><label for="wkw">Frases para activarla</label>
 <input id="wkw" type="text">
 <p class="hint">Separadas por coma. Con “Activar voz” prendido, al oír una de estas frases te contesta la personalidad que tengas activa (lo que digas junto con la frase también cuenta). Si no te entiende, mira en la pantalla principal cómo escribió tu voz (“Escuché: ...”) y agrega esa forma aquí.</p>
-<h3>Memoria</h3>
+<h3 class="subh">Avisos con la pantalla apagada</h3><p class="hint">Para que un temporizador te avise aunque bloquees el celular. Necesita tu token de arriba y el Worker de avisos (mitca-push). Puede llegar hasta un minuto más tarde.</p>
+<label for="pwu">Dirección del Worker de avisos</label>
+<input id="pwu" type="text" autocomplete="off">
+<div class="row"><button id="pon" class="sec" type="button">Activar avisos</button><button id="ptest" class="sec" type="button">Probar (1 min)</button></div>
+<p id="pmsg" class="hint"></p>
+</div></details>
+<details class="grp" id="g_4"><summary><span class="gt"><b>Memoria</b><small>Lo que Mitca recuerda de ti</small></span></summary><div class="grpb">
 <p>Dile “recuerda que...” y lo guarda. Se envía a la IA en cada mensaje: no guardes contraseñas ni datos de tarjetas.</p>
 <ul id="memL" class="mem"></ul>
 <label for="memI">Agregar a mano</label>
 <input id="memI" type="text" placeholder="Me gusta el café sin azúcar">
 <div class="row"><button id="memA" type="button">Guardar</button><button id="memC" class="sec" type="button">Borrar todo</button></div>
-
-<h3>Búsqueda en internet</h3>
-<label class="chk"><input type="checkbox" id="web">Buscar en internet solo cuando haga falta</label>
+</div></details>
+<details class="grp" id="g_5"><summary><span class="gt"><b>Búsqueda y archivos</b><small>Internet, colores y respaldo de cuota</small></span></summary><div class="grpb">
+<h3 class="subh">Búsqueda en internet</h3><label class="chk"><input type="checkbox" id="web">Buscar en internet solo cuando haga falta</label>
 <p class="hint">Los saludos y la charla normal responden al instante, sin buscar. Busca solo con noticias, clima, precios o cuando le dices “busca…”. Si dices “investiga…” o “con fuentes”, hace una investigación más larga. Las fuentes aparecen plegadas debajo de la respuesta.</p>
-<h3>Archivos</h3>
-<label for="pal">Colores de los archivos</label>
+<h3 class="subh">Archivos</h3><label for="pal">Colores de los archivos</label>
 <select id="pal"><option value="auto">Que la IA elija según el tema</option><option value="oceano">Océano (azul)</option><option value="bosque">Bosque (verde)</option><option value="atardecer">Atardecer (naranja)</option><option value="vino">Vino (guinda)</option><option value="grafito">Grafito (gris)</option><option value="lavanda">Lavanda (morado)</option></select>
 <p class="hint">Pídele “hazme un Excel con mi presupuesto” o “redacta una carta en Word” y aparece un botón para descargarlo. Sirve para documentos sencillos; los largos gastan más créditos de la IA.</p>
 <label class="chk"><input type="checkbox" id="fcl">Usar Claude para crear archivos</label>
@@ -243,30 +258,25 @@ dialog[open]{animation:slidein .25s ease-out}
 <p class="hint">Saludos y charla corta van a Groq (rápido, gasta menos cuota). Investigaciones, archivos, cuentas y mensajes largos usan tu IA principal. Si Groq falla, Mitca vuelve sola a tu IA principal. Clima y hora: datos de Open-Meteo.com; tipo de cambio: Frankfurter (Banco Central Europeo).</p>
 <label class="chk"><input type="checkbox" id="xpfb">Permitir cambiar a otros proveedores automáticamente (envía el contexto a otra empresa)</label>
 <p class="hint">Si una IA se queda sin cuota, Mitca prueba con las otras que tengas configuradas. Con la puerta segura, las llaves reales quedan en Cloudflare y no en este celular.</p>
-<h3>Puerta segura (llaves en Cloudflare)</h3>
-<label for="gwt">Token de acceso de Mitca</label>
-<input id="gwt" type="password" autocomplete="off" placeholder="Pega aquí tu token">
-<p id="gws" class="hint">Con el token puesto, las llaves se manejan solas desde Cloudflare y esta pantalla ya no te las pide. Sin token, Mitca usa las llaves guardadas en este celular.</p>
-<p id="uso" class="hint"></p>
-<h3>Respaldo</h3>
-<p class="hint">Guarda tus recuerdos y ajustes en un archivo para no perderlos si cambias de celular o borras los datos del navegador.</p>
+</div></details>
+<details class="grp" id="g_6"><summary><span class="gt"><b>Pruebas y errores</b><small>Revisar todo y ver los fallos guardados</small></span></summary><div class="grpb">
+<h3 class="subh">Revisar que todo funcione</h3><p class="hint">Prueba el micrófono, las voces y tu llave en este celular. Te pedirá permiso para usar el micrófono.</p>
+<div class="row"><button id="dgo" type="button">Probar todo</button></div>
+<ul id="diag"></ul>
+<h3 class="subh">Registro de errores</h3><p class="hint">Guarda los últimos fallos que pasaron en este celular (sin tus llaves). Si algo no funciona, toca «Copiar» y pégalo aquí en el chat.</p>
+<ul id="elog" class="mem"></ul>
+<div class="row"><button id="elcp" class="sec" type="button">Copiar registro</button><button id="elcl" class="sec" type="button">Borrar registro</button></div>
+<p id="elm2" class="hint"></p>
+</div></details>
+<details class="grp" id="g_7"><summary><span class="gt"><b>Respaldo y charla</b><small>Copia de seguridad y borrar conversación</small></span></summary><div class="grpb">
+<h3 class="subh">Respaldo</h3><p class="hint">Guarda tus recuerdos y ajustes en un archivo para no perderlos si cambias de celular o borras los datos del navegador.</p>
 <label class="chk"><input type="checkbox" id="bkk">Incluir mis llaves (el archivo será sensible)</label>
 <div class="row"><button id="bke" class="sec" type="button">Exportar respaldo</button><button id="bkb" class="sec" type="button">Importar respaldo</button></div>
 <p id="bkat" class="hint">Respaldo automático: aún no hay.</p><div class="row"><button id="bka" class="sec" type="button">Restaurar el respaldo automático</button></div>
 <input id="bki" type="file" accept=".json,application/json" hidden>
 <p id="bkm" class="hint"></p>
-<h3>Proveedores de IA</h3><p class="hint">Mitca prueba las IAs en este orden y salta las que fallan. Usa ↑ ↓ para cambiarlo. Se muestra cómo les ha ido hoy.</p><div id="provp"></div><div class="row"><button id="provr" class="sec" type="button">Actualizar estado</button></div>
-<h3>Revisar que todo funcione</h3>
-<p class="hint">Prueba el micrófono, las voces y tu llave en este celular. Te pedirá permiso para usar el micrófono.</p>
-<div class="row"><button id="dgo" type="button">Probar todo</button></div>
-<ul id="diag"></ul>
-<h3>Registro de errores</h3>
-<p class="hint">Guarda los últimos fallos que pasaron en este celular (sin tus llaves). Si algo no funciona, toca «Copiar» y pégalo aquí en el chat.</p>
-<ul id="elog" class="mem"></ul>
-<div class="row"><button id="elcp" class="sec" type="button">Copiar registro</button><button id="elcl" class="sec" type="button">Borrar registro</button></div>
-<p id="elm2" class="hint"></p>
-<h3>Charla</h3>
-<div class="row"><button id="clr" class="sec" type="button">Borrar conversación</button></div>
+<h3 class="subh">Charla</h3><div class="row"><button id="clr" class="sec" type="button">Borrar conversación</button></div>
+</div></details>
 </div>
 </dialog>
 
@@ -313,7 +323,7 @@ var man=false,lastM=0,lastSw=0,HAND='';
 $('pers').addEventListener('change',function(){man=true;pers=NM[$('pers').value]?$('pers').value:'a';store('jv_pers',pers);applyPers(true)});
 function pickAv(p){menuOpen(false);if(p===pers)return;HAND='';man=true;lastSw=Date.now();pers=p;store('jv_pers',pers);applyPers(false);fillV();elOpts(elList)}
 $('persb').addEventListener('click',function(){pickAv({a:'b',b:'c',c:'d',d:'a'}[pers])});
-var AVR={a:'Líder del equipo · ideas y humor',b:'INFJ empoderada · emociones y decisiones',c:'El más inteligente · ciencia y archivos',d:'Hogar y cuidado · casa, cocina y salud'};
+var AVR={a:'Líder del equipo · ideas y humor',b:'Empoderada · emociones y decisiones',c:'El más inteligente · ciencia y archivos',d:'Hogar y cuidado · casa, cocina y salud'};
 function markAv(){var L=$('avlist');if(!L)return;if(!L.children.length){['a','b','c','d'].forEach(function(p){var b=document.createElement('button');b.type='button';b.className='avi';b.dataset.p=p;b.setAttribute('role','listitem');var im=document.createElement('img');im.alt='';im.src=AV[p].N;var d=document.createElement('span');d.innerHTML='<b></b><small></small>';d.firstChild.textContent=NM[p];d.lastChild.textContent=AVR[p];b.appendChild(im);b.appendChild(d);b.addEventListener('click',function(){pickAv(p)});L.appendChild(b)})}
 Array.prototype.forEach.call(L.children,function(b){b.setAttribute('aria-current',b.dataset.p===pers?'true':'false')})}
 function menuOpen(v){var m=$('menu');m.classList.toggle('open',v);$('mov').hidden=!v;m.setAttribute('aria-hidden',v?'false':'true');$('menub').setAttribute('aria-expanded',v?'true':'false')}
@@ -1018,8 +1028,15 @@ function errRender(){var ul=$('elog');ul.innerHTML='';if(!ERRL.length){var e=doc
 ERRL.slice(-15).reverse().forEach(function(x){var li=document.createElement('li'),sp=document.createElement('span');sp.style.cssText='font-size:.85rem;overflow-wrap:anywhere';sp.textContent=errFmt(x);li.appendChild(sp);ul.appendChild(li)})}
 $('elcl').addEventListener('click',function(){ERRL=[];try{localStorage.removeItem('jv_errlog')}catch(e){}errRender();$('elm2').textContent='Registro borrado.'});
 $('elcp').addEventListener('click',async function(){var t=ERRL.map(errFmt).join('\n')||'Sin errores registrados.';try{await navigator.clipboard.writeText(t);$('elm2').textContent='Copiado. Pégalo en el chat.'}catch(e){$('elm2').textContent='No pude copiar; selecciona el texto de arriba a mano.'}});
+/* grupos de configuración: solo uno abierto */
+Array.prototype.forEach.call(document.querySelectorAll('#cfg .grp'),function(d){d.addEventListener('toggle',function(){if(d.open){Array.prototype.forEach.call(document.querySelectorAll('#cfg .grp'),function(o){if(o!==d)o.open=false});try{d.scrollIntoView({block:'nearest'})}catch(e){}}})});
 /* diagnóstico */
-function drow(ok,t){var li=document.createElement('li');li.textContent=(ok===true?'✓ ':ok===false?'✗ ':'• ')+t;$('diag').appendChild(li)}
+var DGL=[],DGT=0;try{var _dg=JSON.parse(localStorage.getItem('jv_diag')||'null');if(_dg&&_dg.r){DGL=_dg.r;DGT=_dg.t||0}}catch(e){DGL=[]}
+function drowUI(ok,t){var li=document.createElement('li');li.textContent=(ok===true?'✓ ':ok===false?'✗ ':'• ')+t;$('diag').appendChild(li)}
+function dgSave(){try{DGT=Date.now();localStorage.setItem('jv_diag',JSON.stringify({t:DGT,r:DGL.slice(-60)}))}catch(e){}}
+function drow(ok,t){drowUI(ok,t);DGL.push([ok,String(t).slice(0,240)]);if(DGL.length>60)DGL=DGL.slice(-60);dgSave()}
+function dgRender(){var u=$('diag');u.innerHTML='';if(!DGL.length)return;var li=document.createElement('li');li.className='e';li.textContent='Última prueba guardada: '+new Date(DGT).toLocaleString('es-MX');u.appendChild(li);DGL.forEach(function(x){drowUI(x[0],x[1])})}
+dgRender();
 async function pingAI(){var k=keysOf($('key').value)[0]||'',m=$('mod').value.trim();if(!k)throw new Error('falta la llave');
 if(cur==='custom'){var cb=$('basec').value.trim().replace(/\/+$/,'');if(!cb)throw new Error('falta la dirección del servicio');BASES.custom=cb}
 if(cur==='nvidia'){try{await nvCat()}catch(en){}if(!m||/^meta\/llama-3\.3-70b-instruct$/.test(m)){m=nvId(NVT.chatL[0])||'nvidia/nemotron-3.5-lightning-30b-a3b';$('mod').value=m}}
@@ -1037,7 +1054,7 @@ try{var ev=await nvEmbed(['hola'],'query');L.push('✓ embeddings (nemotron-3-em
 try{var rk=await nvRerank('gato',['perro','gato negro']);L.push('✓ rerank (orden '+rk.join(',')+')')}catch(e){L.push('✗ rerank: '+why(e)+' (puede faltar permitir ai.api.nvidia.com en el Worker)')}pr();
 var pid=nvId('nemotron-3.5-parse');L.push(pid?'· parse: '+pid+' está en el catálogo (se prueba con un PDF escaneado)':'✗ parse: no está en el catálogo');pr()}
 catch(e){L.push('Error: '+why(e));pr()}finally{b.disabled=false}});
-$('dgo').addEventListener('click',async function(){var b=$('dgo');b.disabled=true;$('diag').innerHTML='';save();
+$('dgo').addEventListener('click',async function(){var b=$('dgo');b.disabled=true;$('diag').innerHTML='';DGL=[];save();
 drow(location.protocol==='https:'||location.hostname==='localhost','Página segura (https)'+((location.protocol==='https:'||location.hostname==='localhost')?'':': el micrófono puede fallar, abre la página desde tu dirección de GitHub'));
 drow(!!SR,'Reconocimiento de voz del navegador'+(SR?'':': usa Chrome o Safari'));
 try{var st=await navigator.mediaDevices.getUserMedia({audio:true});st.getTracks().forEach(function(t){t.stop()});drow(true,'Micrófono con permiso')}catch(e){drow(false,'Micrófono: '+(e.name||'error')+'. Permítelo en los ajustes del sitio')}
