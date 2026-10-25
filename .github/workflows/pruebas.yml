@@ -1,5 +1,16 @@
 name: Pruebas de Mitca
-on: [push, pull_request, workflow_dispatch]
+on:
+  push:
+    paths:
+      - 'index.html'
+      - 'tests/**'
+      - '.github/workflows/pruebas.yml'
+  pull_request:
+    paths:
+      - 'index.html'
+      - 'tests/**'
+      - '.github/workflows/pruebas.yml'
+  workflow_dispatch:
 jobs:
   pruebas:
     runs-on: ubuntu-latest
