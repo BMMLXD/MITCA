@@ -26,17 +26,13 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 .ic svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .stage{flex:none;text-align:center;padding:0 16px}
 .av{position:relative;height:clamp(150px,32dvh,300px);aspect-ratio:4/5;margin:0 auto;border-radius:22px;overflow:hidden;border:3px solid var(--line);background:var(--code)}
-.av img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 25%;opacity:0;transition:opacity .25s;transform:translate(var(--tx,0px),var(--ty,0px)) scale(var(--sc,1));animation:breathe 7s ease-in-out infinite}
-.av[data-m=talk] img{transition:none}
-#iB{transition:opacity .05s}
-#iB,.av[data-m=talk] #iM,.av[data-m=talk] #iS{-webkit-mask-image:radial-gradient(ellipse var(--frx,36%) var(--fry,30%) at var(--fx,50%) var(--fy,40%),#000 55%,transparent 100%);mask-image:radial-gradient(ellipse var(--frx,36%) var(--fry,30%) at var(--fx,50%) var(--fy,40%),#000 55%,transparent 100%)}
-@keyframes breathe{50%{scale:1.01}}
+.av img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 25%;opacity:0;transition:opacity .25s}
 .av img.on{opacity:1}
 .av[data-s=listening]{border-color:var(--acc);box-shadow:0 0 0 4px var(--accbg)}
 .av[data-s=thinking]{border-color:#e0a030}
 .av[data-s=speaking]{border-color:#2ecc71;animation:pulse 1.2s infinite}
 @keyframes pulse{50%{box-shadow:0 0 0 8px rgba(46,204,113,.25)}}
-@media (prefers-reduced-motion:reduce){.av img{transition:none;animation:none;transform:none}.av[data-s=speaking]{animation:none}}
+@media (prefers-reduced-motion:reduce){.av img{transition:none}.av[data-s=speaking]{animation:none}}
 #avl{font-size:.95rem;color:var(--mut);margin-top:6px}
 #st{font-size:.9rem;color:#c0392b;min-height:1.3em}
 #st.info{color:#6b7280}
@@ -228,9 +224,6 @@ dialog[open]{animation:slidein .25s ease-out}
 <details id="eld"><summary>¿Cómo consigo la llave de ElevenLabs?</summary>
 <ol><li>Crea una cuenta gratis en <b>elevenlabs.io</b>.</li><li>Entra a tu perfil y busca <b>API keys</b>.</li><li>Crea una llave, cópiala y pégala arriba.</li><li>Toca <b>Cargar mis voces</b> y elige una que suene bien en español.</li></ol></details>
 </div>
-<label for="animsel">Animación del avatar al hablar</label>
-<select id="animsel"><option value="s">Suave (recomendada)</option><option value="r">Sincronizada con el volumen (experimental)</option><option value="0">Simple, sin movimiento</option></select>
-<p class="hint">«Suave» mueve la boca con un ritmo natural y un leve movimiento de cabeza. «Sincronizada» sigue el volumen real de las voces de Cloudflare, ElevenLabs, Gemini y Mistral (no el de la voz del celular); si dejas de oír la voz, vuelve a «Suave» y recarga la página. Si subes imágenes extra de boca y parpadeo (mitca-a-M.jpg y mitca-a-B.jpg, y lo mismo con b, c y d), se usan solas.</p>
 <div class="row"><button id="tv" class="sec" type="button">Probar voz</button></div>
 </div></details>
 <details class="grp" id="g_3"><summary><span class="gt"><b>Activación</b><small>Frases de voz y avisos con la pantalla apagada</small></span></summary><div class="grpb">
@@ -306,31 +299,8 @@ if(m&&GWH[m[1]]&&GW.prov.indexOf(GWH[m[1]])>-1){var h={},oh=(o&&o.headers)||{};O
 if(u.indexOf(b+'/api/')===0){var h2={},oh2=(o&&o.headers)||{};Object.keys(oh2).forEach(function(k){h2[k]=oh2[k]});h2['x-mitca-token']=GW.tok;var o3={};for(var y in (o||{}))o3[y]=o[y];o3.headers=h2;return _gf(u,o3)}}}catch(e){logErr('puerta segura',e)}return _gf(u,o)};
 var wake=false,wl=false,wh=false,wrec=null;
 var LB={idle:'Lista',listening:'Te escucho...',thinking:'Pensando...',speaking:'Hablando...'};
-/* animación del avatar al hablar (v18): ritmo suave o volumen real; usa mitca-X-M.jpg (boca media) y mitca-X-B.jpg (parpadeo) si existen */
-var AN={on:false,raf:0,lv:0,tgt:0,next:0,ac:null,ana:null,buf:null},OPT={M:false,B:false},blTm=0;
-function animMode(){var m=store('jv_anim');return m==='r'||m==='0'?m:'s'}
-function mkOpt(k){var e=$('i'+k);if(!e){e=document.createElement('img');e.id='i'+k;e.alt='';$('av').appendChild(e)}return e}
-var FACE={a:[52.5,44.4,36,30.6],b:[63.9,35.3,35.2,30],c:[50.1,32.7,32.7,27.9],d:[45.9,33.3,21.2,18.1]};
-function faceVars(p){var f=FACE[p]||FACE.a,a=$('av');a.style.setProperty('--fx',f[0]+'%');a.style.setProperty('--fy',f[1]+'%');a.style.setProperty('--frx',f[2]+'%');a.style.setProperty('--fry',f[3]+'%')}
-function optLoad(p){faceVars(p);['M','B'].forEach(function(k){OPT[k]=false;var e=$('i'+k);if(e){e.removeAttribute('src');e.style.opacity=''}var im=new Image();im.onload=function(){if(p!==pers)return;mkOpt(k).src=im.src;OPT[k]=true;if(k==='B')blinkSoon()};im.src='mitca-'+p+'-'+k+'.jpg'})}
-function blinkSoon(){clearTimeout(blTm);blTm=setTimeout(blink,3000+Math.random()*3500)}
-function blink(){var e=$('iB');if(OPT.B&&e&&$('av').dataset.s==='idle'&&!document.hidden&&animMode()!=='0'){e.style.zIndex='4';e.style.opacity='1';setTimeout(function(){e.style.opacity='';e.style.zIndex=''},140)}blinkSoon()}
-function anaInit(){if(AN.ana||animMode()!=='r')return;try{var C=window.AudioContext||window.webkitAudioContext;AN.ac=new C();var src=AN.ac.createMediaElementSource(au);AN.ana=AN.ac.createAnalyser();AN.ana.fftSize=256;AN.buf=new Uint8Array(AN.ana.fftSize);src.connect(AN.ana);AN.ana.connect(AN.ac.destination);if(AN.ac.resume)AN.ac.resume()}catch(e){AN.ana=null;logErr('anim',e)}}
-function lvNext(now){if(animMode()==='r'&&AN.ana&&au&&!au.paused&&!au.ended){AN.ana.getByteTimeDomainData(AN.buf);var m=0,i,v;for(i=0;i<AN.buf.length;i++){v=Math.abs(AN.buf[i]-128);if(v>m)m=v}return Math.min(1,m/64)}
-if(now>=AN.next){AN.tgt=Math.random()<.3?0:.35+Math.random()*.65;AN.next=now+100+Math.random()*130}return AN.tgt}
-function cl(x){return Math.max(0,Math.min(1,x))}
-function animTick(now){var av=$('av'),talking=(au&&!au.paused&&!au.ended)||(window.speechSynthesis&&speechSynthesis.speaking),t=talking?lvNext(now):0,l,wS,wM,iN=$('iN'),iS=$('iS'),iM=$('iM');
-AN.lv+=(t-AN.lv)*(t>AN.lv?.55:.3);l=AN.lv;
-if(OPT.M){wS=cl((l-.5)/.35);wM=cl(1-Math.abs(l-.3)/.3)*(1-wS)}else{wS=cl((l-.2)/.5);wM=0}
-iN.style.opacity='1';iN.style.zIndex='1';iS.style.opacity=wS.toFixed(3);iS.style.zIndex='3';
-if(OPT.M&&iM){iM.style.opacity=wM.toFixed(3);iM.style.zIndex='2'}
-av.style.setProperty('--sc',(1+.012*l).toFixed(4));av.style.setProperty('--tx',(Math.sin(now/1700)*.5).toFixed(2)+'px');av.style.setProperty('--ty',(-.8*l+Math.sin(now/1100)*.5).toFixed(2)+'px')}
-function animLoop(now){if(!AN.on)return;animTick(now);AN.raf=requestAnimationFrame(animLoop)}
-function animOn(){if(AN.on||animMode()==='0')return;if(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches)return;AN.on=true;AN.lv=0;AN.tgt=0;AN.next=0;$('av').dataset.m='talk';anaInit();AN.raf=requestAnimationFrame(animLoop)}
-function animOff(){if(!AN.on)return;AN.on=false;cancelAnimationFrame(AN.raf);var av=$('av');delete av.dataset.m;['N','S','M'].forEach(function(k){var e=$('i'+k);if(e){e.style.opacity='';e.style.zIndex=''}});['--sc','--tx','--ty'].forEach(function(q){av.style.removeProperty(q)})}
-function animSet(s){if(s==='speaking')animOn();else animOff()}
 function setS(s){$('av').dataset.s=s;$('avl').textContent=(s==='idle'&&wake)?'Esperando que me llames...':LB[s];$('iN').className=s==='idle'?'on':'';$('iL').className=s==='listening'?'on':'';$('iT').className=s==='thinking'?'on':'';$('iS').className=s==='speaking'?'on':'';
-animSet(s);wh=false;if(s!=='idle'){if(wrec){try{wrec.abort()}catch(e){}}}else wakeNext()}
+wh=false;if(s!=='idle'){if(wrec){try{wrec.abort()}catch(e){}}}else wakeNext()}
 function msg(t,info){var e=$('st');e.textContent=t||'';e.className=info?'info':''}
 function openCfg(){var d=$('cfg');if(d.showModal)d.showModal();else d.setAttribute('open','')}
 /* ajustes */
@@ -348,7 +318,6 @@ var NM={a:'Mitca',b:'Marcia',c:'Marcos',d:'Miranda'};
 var pers=store('jv_pers');if(!NM[pers])pers='a';
 function applyPers(clear){$('sys').value=pers==='b'?DS2:pers==='c'?DS3:pers==='d'?DS4:DS;document.body.classList.toggle('p2',pers==='b');document.body.classList.toggle('p3',pers==='c');document.body.classList.toggle('p4',pers==='d');$('pers').value=pers;$('nm').textContent=NM[pers];$('av').setAttribute('aria-label',NM[pers]);$('log').dataset.ph='Toca el micrófono o escribe para hablar con '+NM[pers]+'.';document.title=NM[pers];$('voz').previousElementSibling.textContent='Voz de '+NM[pers]+' (celular)';$('elvs').previousElementSibling.textContent='Voz de '+NM[pers]+' (ElevenLabs)';if(clear&&typeof elOpts==='function'){fillV();elOpts(elList)}$('persb').textContent=NM[pers];if(pers==='a'||pers==='b')store('jv_alt',pers);markAv();
 ['N','L','T','S'].forEach(function(k){$('i'+k).src=AV[pers][k]});
-optLoad(pers);
 if(clear)clearChat()}
 var man=false,lastM=0,lastSw=0,HAND='';
 $('pers').addEventListener('change',function(){man=true;pers=NM[$('pers').value]?$('pers').value:'a';store('jv_pers',pers);applyPers(true)});
@@ -623,7 +592,6 @@ $('voz').addEventListener('change',function(){store(vkey(),$('voz').value)});
 function engUI(){var e=store('jv_eng')==='eleven';$('webv').hidden=e;$('elv').hidden=!e;$('gemh').hidden=store('jv_eng')!=='gem';$('mish').hidden=store('jv_eng')!=='mis';$('cfv').hidden=store('jv_eng')!=='cf'}
 $('eng').value=({eleven:1,gem:1,mis:1,cf:1}[store('jv_eng')]?store('jv_eng'):'web');engUI();$('gtfb').checked=store('jv_gtfb')!=='0';$('gtfb').addEventListener('change',function(){store('jv_gtfb',$('gtfb').checked?'1':'0')});
 $('eng').addEventListener('change',function(){store('jv_eng',$('eng').value);engUI()});
-$('animsel').value=animMode();$('animsel').addEventListener('change',function(){store('jv_anim',$('animsel').value)});
 $('cfu').value=store('jv_cf_url')||'';$('cfu').addEventListener('change',function(){store('jv_cf_url',$('cfu').value.trim());store('jv_cf_until','0')});
 $('pwu').value=store('jv_pushurl')||'';$('pwu').placeholder=PUSH_URL;$('pwu').addEventListener('change',function(){store('jv_pushurl',$('pwu').value.trim())});
 $('pmsg').textContent=pOn()?'Avisos activados en este celular.':'Sin activar.';
